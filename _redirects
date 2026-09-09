@@ -1,2 +1,2 @@
 # Cualquier ruta no encontrada cae en el panel principal (SPA de una sola página)
-/*    /index.html   200
+/    /login.html   302

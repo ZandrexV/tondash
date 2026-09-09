@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamAdmin — Iniciar sesión</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Bebas+Neue&display=swap">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: 'var(--bg)', card: 'var(--card)',
+          brd: 'var(--border)', brdstrong: 'var(--border-strong)',
+          ink: 'var(--text)', inkmuted: 'var(--text-muted)', inkdim: 'var(--text-dim)',
+          accent: 'var(--red)', accenthover: 'var(--red-hover)',
+        },
+        fontFamily: {
+          display: ['Bebas Neue', 'Arial Narrow', 'sans-serif'],
+          body: ['Poppins', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        },
+        borderRadius: { card: 'var(--radius)', ctrl: 'var(--radius-sm)' },
+      },
+    },
+  };
+</script>
+<style>
+  :root {
+    --bg: #050508;
+    --card: #111116;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f2f2f5;
+    --text-muted: #9a9aa5;
+    --text-dim: #616169;
+    --red: #e50914;
+    --red-hover: #ff1e27;
+    --red-dim: rgba(229,9,20,0.12);
+    --red-shadow: rgba(229,9,20,0.25);
+    --red-focus: rgba(229,9,20,0.03);
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Poppins', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, var(--red-dim), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(59,130,246,0.06), transparent 60%);
+    background-attachment: fixed;
+  }
+  input[type=text], input[type=password] {
+    width: 100%;
+    padding: 10px 13px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  input::placeholder { color: var(--text-dim); }
+  input:focus { border-color: var(--red); background: var(--red-focus); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px; font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.08s ease, opacity 0.12s ease, background 0.12s ease;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-primary { background: var(--red); color: #fff; box-shadow: 0 8px 22px var(--red-shadow); }
+  .btn-primary:hover:not(:disabled) { background: var(--red-hover); }
+  .btn-block { width: 100%; }
+
+  #loadingScreen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    z-index: 100;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border-strong);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de carga mientras se verifica si ya hay sesión válida -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+</div>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginScreen" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-bg px-4">
+  <div class="w-full max-w-sm">
+    <div class="flex flex-col items-center gap-2 mb-8">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-accent overflow-hidden" id="loginBrandMark">
+        <i class="fa-solid fa-play"></i>
+      </div>
+      <h1 class="font-display text-2xl tracking-wide" id="loginBrandName">STREAMADMIN</h1>
+      <p class="text-inkdim text-xs">Panel de administración</p>
+    </div>
+
+    <div class="bg-card border border-brd rounded-card p-6">
+      <div id="loginErrorBox" class="hidden mb-4 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-ctrl px-3 py-2"></div>
+
+      <form id="loginForm" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-bold uppercase tracking-wide text-inkmuted">Correo electrónico</label>
+          <input type="text" id="login_email" required placeholder="admin@correo.com" autocomplete="username">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-bold uppercase tracking-wide text-inkmuted">Contraseña</label>
+          <input type="password" id="login_password" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block mt-1" id="loginSubmitBtn">
+          <i class="fa-solid fa-right-to-bracket"></i> Iniciar sesión
+        </button>
+      </form>
+    </div>
+    <p class="text-center text-[11px] text-inkdim mt-5">Acceso restringido a administradores</p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  if (!window.STREAM_CONFIG) {
+    document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#fff;"><h2>⚠️ Falta config.js</h2><p>Sube config.js junto a login.html.</p></div>';
+    throw new Error('config.js no cargado.');
+  }
+
+  const CFG = window.STREAM_CONFIG;
+  const AUTH_SUPABASE_URL = CFG.AUTH_SUPABASE_URL;
+  const AUTH_SUPABASE_KEY = CFG.AUTH_SUPABASE_KEY;
+  const AUTH_HEADERS_BASE = { "Content-Type": "application/json", "apikey": AUTH_SUPABASE_KEY };
+  const DASHBOARD_URL = "dashboard.html";
+  const LS_PREFIX = 'streamadmin_';
+
+  // ---- Marca (logo/nombre) desde config.js ----
+  (function aplicarMarcaLogin() {
+    const nombre = CFG.BRAND_NAME || 'StreamAdmin';
+    document.getElementById('loginBrandName').innerText = nombre.toUpperCase();
+    document.title = `${nombre} — Iniciar sesión`;
+    if (CFG.BRAND_LOGO_URL) {
+      document.getElementById('loginBrandMark').innerHTML =
+        `<img src="${CFG.BRAND_LOGO_URL}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-play&quot;></i>';">`;
+    }
+  })();
+
+  function mostrarLogin() {
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+  }
+
+  function irAlDashboard() {
+    window.location.href = DASHBOARD_URL;
+  }
+
+  // ---- Verifica si ya hay una sesión válida guardada; si sí, salta directo al dashboard ----
+  async function verificarSesionExistente() {
+    let raw = null;
+    try { raw = localStorage.getItem(LS_PREFIX + 'auth_session'); } catch (e) {}
+    if (!raw) { mostrarLogin(); return; }
+
+    let sesion;
+    try { sesion = JSON.parse(raw); } catch (e) { mostrarLogin(); return; }
+
+    try {
+      const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/user`, {
+        headers: { ...AUTH_HEADERS_BASE, Authorization: `Bearer ${sesion.access_token}` }
+      });
+      if (res.ok) { irAlDashboard(); return; }
+
+      // access_token expirado — intenta renovar con el refresh_token antes de pedir login de nuevo
+      if (sesion.refresh_token) {
+        const resRefresh = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST', headers: AUTH_HEADERS_BASE,
+          body: JSON.stringify({ refresh_token: sesion.refresh_token })
+        });
+        const dataRefresh = await resRefresh.json();
+        if (resRefresh.ok && dataRefresh.access_token) {
+          localStorage.setItem(LS_PREFIX + 'auth_session', JSON.stringify({
+            access_token: dataRefresh.access_token,
+            refresh_token: dataRefresh.refresh_token || sesion.refresh_token,
+            email: dataRefresh.user?.email || sesion.email,
+            expires_at: dataRefresh.expires_at
+          }));
+          irAlDashboard();
+          return;
+        }
+      }
+    } catch (e) { /* red caída u otro error — se muestra el login */ }
+
+    try { localStorage.removeItem(LS_PREFIX + 'auth_session'); } catch (e) {}
+    mostrarLogin();
+  }
+
+  // ---- Procesar el envío del formulario de login ----
+  document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const btn = document.getElementById('loginSubmitBtn');
+    const originalHtml = btn.innerHTML;
+    const email = document.getElementById('login_email').value.trim();
+    const password = document.getElementById('login_password').value;
+    const errorBox = document.getElementById('loginErrorBox');
+    errorBox.classList.add('hidden');
+
+    btn.disabled = true; btn.innerHTML = '⏳ Ingresando...';
+    try {
+      const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST', headers: AUTH_HEADERS_BASE,
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.access_token) {
+        localStorage.setItem(LS_PREFIX + 'auth_session', JSON.stringify({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          email: data.user?.email || email,
+          expires_at: data.expires_at
+        }));
+
+        // Establece la cookie de sesión HttpOnly a través del Worker, que
+        // es lo que realmente protege dashboard.html a nivel de servidor.
+        // Si esta llamada falla (ej. el Worker aún no está desplegado),
+        // el login sigue funcionando localmente, pero dashboard.html no
+        // tendrá la protección de servidor hasta que el Worker esté activo.
+        try {
+          await fetch('/session-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+            credentials: 'include'
+          });
+        } catch (e) { /* el Worker puede no estar desplegado aún; no bloquea el login */ }
+
+        irAlDashboard();
+      } else {
+        const msg = data.error_description || data.msg || 'Credenciales incorrectas.';
+        errorBox.innerText = msg;
+        errorBox.classList.remove('hidden');
+        btn.disabled = false; btn.innerHTML = originalHtml;
+      }
+    } catch (err) {
+      errorBox.innerText = 'No se pudo conectar con el servidor de autenticación.';
+      errorBox.classList.remove('hidden');
+      btn.disabled = false; btn.innerHTML = originalHtml;
+    }
+  });
+
+  verificarSesionExistente();
+</script>
+</body>
+</html>

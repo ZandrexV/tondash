@@ -1,0 +1,3331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamAdmin — Panel de Administración</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&family=Bebas+Neue&display=swap">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: 'var(--bg)',
+          card: 'var(--card)',
+          cardhover: 'var(--card-hover)',
+          brd: 'var(--border)',
+          brdstrong: 'var(--border-strong)',
+          ink: 'var(--text)',
+          inkmuted: 'var(--text-muted)',
+          inkdim: 'var(--text-dim)',
+          accent: 'var(--red)',
+          accenthover: 'var(--red-hover)',
+          green: 'var(--green)',
+          amber: 'var(--amber)',
+          blue: 'var(--blue)',
+        },
+        fontFamily: {
+          display: ['Bebas Neue', 'Arial Narrow', 'sans-serif'],
+          body: ['var(--font-body-name)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          mono: ['SF Mono', 'Roboto Mono', 'monospace'],
+        },
+        borderRadius: {
+          card: 'var(--radius)',
+          ctrl: 'var(--radius-sm)',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  :root {
+    --bg: #050508;
+    --bg-elevated: #0b0b10;
+    --card: #111116;
+    --card-hover: #16161c;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f2f2f5;
+    --text-muted: #9a9aa5;
+    --text-dim: #616169;
+    --red: #e50914;
+    --red-hover: #ff1e27;
+    --red-dim: rgba(229,9,20,0.12);
+    --red-shadow: rgba(229,9,20,0.25);
+    --red-focus: rgba(229,9,20,0.03);
+    --green: #2fd66b;
+    --amber: #f5a623;
+    --blue: #3b82f6;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+    --font-body-name: 'Poppins';
+    --font-body: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Roboto Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, var(--red-dim), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(59,130,246,0.06), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a45; }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; }
+
+  /* ===================== LAYOUT SHELL ===================== */
+  .shell {
+    display: block;
+    min-height: 100vh;
+  }
+
+  /* ===================== SIDEBAR (estilo Vidara) ===================== */
+  .sidebar {
+    background: #0a0a0d;
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    width: 212px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 50;
+    overflow-y: auto;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  body.no-animations .sidebar { transition: none; }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 45;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+  }
+  .sidebar-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease, visibility 0s linear;
+  }
+  body.no-animations .sidebar-overlay { transition: none; }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 6px 22px 6px;
+  }
+  .brand-mark {
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    color: var(--red);
+    flex-shrink: 0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .brand-mark img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 11px 12px;
+    border-radius: 9px;
+    color: #a6a6b0;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  body.no-animations .nav-item { transition: none; }
+  .nav-item .nav-icon {
+    width: 18px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14.5px;
+    opacity: 0.8;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: #fff; }
+  .nav-item.active {
+    background: rgba(255,255,255,0.07);
+    color: #fff;
+    font-weight: 600;
+  }
+  .nav-item.active .nav-icon { opacity: 1; }
+  .nav-badge {
+    margin-left: auto;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 999px;
+    background: var(--red);
+    color: #fff;
+    font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .sidebar-storage {
+    margin: 16px 4px 4px 4px;
+    padding: 14px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .sidebar-storage .storage-row { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; color: var(--text-dim); text-transform: uppercase; }
+  .sidebar-storage .storage-bar { margin-top: 9px; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .sidebar-storage .storage-fill { height: 100%; width: 0%; background: var(--red); border-radius: 4px; }
+  .sidebar-storage .storage-used { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 14px 6px; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); flex-shrink:0; }
+  .dot.off { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot.pending { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+  /* ===================== MAIN AREA ===================== */
+  .main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-left: 212px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 30px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,5,8,0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    gap: 16px;
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1; overflow: hidden; }
+
+  .hamburger-btn {
+    display: none;
+    align-items: center; justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 9px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .hamburger-btn:hover { background: rgba(255,255,255,0.06); }
+
+  .topbar-right { display: flex; align-items: center; gap: 18px; }
+
+  .live-clock { text-align: right; }
+  .live-clock .time { font-family: var(--font-mono); font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+  .live-clock .date { font-size: 10.5px; color: var(--text-dim); text-transform: capitalize; }
+
+  .conn-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .admin-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--red), #6a0d10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .admin-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  .admin-chip span { font-size: 12.5px; font-weight: 600; }
+
+  .content {
+    padding: 28px 30px 60px 30px;
+    flex: 1;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; animation: fadeUp 0.28s ease; }
+  body.no-animations .view.active { animation: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===================== CARDS / GLASS ===================== */
+  .glass-card {
+    background: linear-gradient(180deg, var(--card) 0%, rgba(17,17,22,0.7) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .section-heading {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 15px; font-weight: 700;
+    margin: 0 0 18px 0;
+  }
+  .section-heading svg { width: 18px; height: 18px; color: var(--red); }
+  .section-heading i { color: var(--red); font-size: 15px; width: 18px; text-align: center; }
+  .btn i { font-size: 13px; }
+  .config-note i { font-size: 15px; }
+
+  /* ===================== DASHBOARD GREETING ===================== */
+  .dashboard-greeting {
+    font-family: var(--font-body);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin: 0 0 20px 0;
+    color: var(--text);
+  }
+  @media (max-width: 640px) {
+    .dashboard-greeting { font-size: 19px; margin-bottom: 16px; }
+  }
+
+  /* ===================== STAT CARDS ===================== */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+  .stat-card {
+    background: linear-gradient(155deg, var(--card) 0%, rgba(17,17,22,0.55) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .stat-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+  body.no-animations .stat-card { transition: none; }
+  body.no-animations .stat-card:hover { transform: none; }
+  .stat-card::after {
+    content: '';
+    position: absolute; top: -30%; right: -20%;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, var(--stat-glow, rgba(229,9,20,0.18)), transparent 70%);
+    pointer-events: none;
+  }
+  .stat-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--stat-bg, rgba(229,9,20,0.12));
+    color: var(--stat-color, var(--red));
+    margin-bottom: 14px;
+  }
+  .stat-icon svg { width: 18px; height: 18px; }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 34px;
+    letter-spacing: 0.3px;
+    line-height: 1;
+  }
+  .stat-label { margin-top: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+
+  /* ===================== TABLE ===================== */
+  .table-wrap { overflow-x: auto; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; padding: 10px 12px;
+    color: var(--text-dim); font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .row-poster { width: 34px; height: 48px; object-fit: cover; border-radius: 5px; background: #1a1a24; flex-shrink: 0; }
+  .row-title-cell { display: flex; align-items: center; gap: 10px; }
+  .row-title-cell strong { font-size: 13px; font-weight: 600; }
+  .row-title-cell small { display: block; font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .badge.movie { background: rgba(59,130,246,0.14); color: #7db2ff; }
+  .badge.tv { background: rgba(245,166,35,0.14); color: var(--amber); }
+
+  .empty-state {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-dim); font-size: 13px;
+  }
+
+  /* ===================== CALENDARIO DE ESTRENOS ===================== */
+  .premiere-list { display: flex; flex-direction: column; gap: 10px; }
+  .premiere-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .premiere-poster { width: 42px; height: 60px; object-fit: cover; border-radius: 6px; background: #1a1a24; flex-shrink: 0; }
+  .premiere-info { flex: 1; min-width: 0; }
+  .premiere-info strong { font-size: 13.5px; display: block; }
+  .premiere-info span { font-size: 11.5px; color: var(--text-dim); display: block; margin-top: 2px; }
+  .premiere-date-badge {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    min-width: 68px;
+  }
+  .premiere-date-badge .day { font-family: var(--font-display); font-size: 20px; line-height: 1; }
+  .premiere-date-badge .month { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-top: 2px; }
+  .premiere-date-badge.soon { background: var(--red-dim); border-color: rgba(229,9,20,0.25); }
+  .premiere-date-badge.soon .day { color: var(--red); }
+  .premiere-countdown { font-size: 10.5px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+  .premiere-countdown.soon { color: var(--red); }
+
+  /* ===================== DESCUBRIR TMDB ===================== */
+  .discover-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+  }
+  .discover-card {
+    display: flex; flex-direction: column;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .discover-poster-wrap { position: relative; width: 100%; aspect-ratio: 2/3; background: #1a1a24; }
+  .discover-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .discover-owned-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: rgba(47,214,107,0.92);
+    color: #06210f;
+    font-size: 10px; font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 999px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .discover-info { padding: 9px 10px 11px 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .discover-info strong { font-size: 12px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .discover-info span { font-size: 10.5px; color: var(--text-dim); }
+  .discover-add-btn {
+    margin-top: auto;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid rgba(229,9,20,0.25);
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+  }
+  .discover-add-btn:hover { background: rgba(229,9,20,0.2); }
+  .discover-add-btn.owned { background: rgba(47,214,107,0.1); color: var(--green); border-color: rgba(47,214,107,0.25); cursor: default; }
+
+  @media (max-width: 480px) {
+    .discover-grid { grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 10px; }
+  }
+
+  /* ===================== RACHA DE ACTIVIDAD (HEATMAP) ===================== */
+  .heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
+  .heatmap-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 1fr);
+    gap: 3px;
+    width: max-content;
+  }
+  .heatmap-cell {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+  }
+  .heatmap-cell[data-level="1"] { background: var(--red-dim); }
+  .heatmap-cell[data-level="2"] { background: rgba(229,9,20,0.45); background: color-mix(in srgb, var(--red) 45%, transparent); }
+  .heatmap-cell[data-level="3"] { background: rgba(229,9,20,0.7); background: color-mix(in srgb, var(--red) 70%, transparent); }
+  .heatmap-cell[data-level="4"] { background: var(--red); }
+  .heatmap-legend { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 10.5px; color: var(--text-dim); }
+  .heatmap-legend .heatmap-cell { width: 11px; height: 11px; }
+
+  /* ===================== LISTAS: SERVIDORES / SERIES INACTIVAS ===================== */
+  .rank-list { display: flex; flex-direction: column; gap: 10px; }
+  .rank-item { display: flex; align-items: center; gap: 10px; }
+  .rank-item .rank-num {
+    width: 20px; flex-shrink: 0; text-align: center;
+    font-family: var(--font-display); font-size: 14px; color: var(--text-dim);
+  }
+  .rank-item .rank-label { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank-item .rank-bar-track { flex: 1; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .rank-item .rank-bar-fill { height: 100%; background: var(--red); border-radius: 4px; }
+  .rank-item .rank-count { font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; width: 34px; text-align: right; }
+
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 12px;
+    background: rgba(245,166,35,0.05);
+    border: 1px solid rgba(245,166,35,0.18);
+    border-radius: var(--radius-sm);
+  }
+  .alert-item strong { font-size: 12.5px; display: block; }
+  .alert-item span { font-size: 11px; color: var(--text-dim); }
+  .alert-item.danger { background: rgba(229,9,20,0.05); border-color: rgba(229,9,20,0.18); }
+
+  /* ===================== CAMPANITA DE NOTIFICACIONES ===================== */
+  .notif-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: none;
+  }
+  .notif-overlay.visible { display: block; }
+
+  .notif-bell-wrap { position: relative; }
+  .notif-bell-btn {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .notif-bell-btn:hover { color: #fff; }
+  .notif-badge {
+    position: absolute; top: -3px; right: -3px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    border-radius: 999px;
+    background: var(--red);
+    color: #fff;
+    font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .notif-panel {
+    position: absolute; top: calc(100% + 10px); right: 0;
+    width: 320px; max-height: 420px;
+    background: #0e0e13;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 45px rgba(0,0,0,0.5);
+    z-index: 60;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .notif-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .notif-clear-btn { background: none; border: none; color: var(--text-dim); font-size: 10.5px; font-weight: 600; cursor: pointer; }
+  .notif-clear-btn:hover { color: var(--red); }
+  .notif-panel-body { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .notif-entry { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 8px; }
+  .notif-entry:hover { background: rgba(255,255,255,0.03); }
+  .notif-entry.unread { background: rgba(229,9,20,0.05); }
+  .notif-entry-icon { width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; background: rgba(245,166,35,0.12); color: var(--amber); }
+  .notif-entry-icon.danger { background: var(--red-dim); color: var(--red); }
+  .notif-entry-text { flex: 1; min-width: 0; }
+  .notif-entry-text strong { font-size: 12px; display: block; }
+  .notif-entry-text span { font-size: 11px; color: var(--text-dim); }
+  .notif-dismiss-btn {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .notif-dismiss-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+  /* ===================== APROBACIONES ===================== */
+  .approval-list { display: flex; flex-direction: column; gap: 10px; }
+  .approval-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-wrap: wrap;
+  }
+  .approval-info { flex: 1; min-width: 200px; }
+  .approval-info strong { font-size: 13px; display: block; }
+  .approval-info span { font-size: 11px; color: var(--text-dim); display: block; margin-top: 3px; }
+  .approval-info .url-line { font-family: var(--font-mono); font-size: 10.5px; word-break: break-all; color: var(--text-muted); margin-top: 4px; }
+  .approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .approval-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 11.5px; font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .approval-btn.approve { background: rgba(47,214,107,0.12); color: var(--green); border-color: rgba(47,214,107,0.25); }
+  .approval-btn.approve:hover { background: rgba(47,214,107,0.22); }
+  .approval-btn.reject { background: rgba(229,9,20,0.1); color: var(--red); border-color: rgba(229,9,20,0.22); }
+  .approval-btn.reject:hover { background: rgba(229,9,20,0.2); }
+
+  .role-notice {
+    display: flex; gap: 9px; align-items: flex-start;
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius-sm);
+    padding: 10px 13px;
+    font-size: 11.5px; color: #9dc2ff; line-height: 1.5;
+    margin-bottom: 4px;
+  }
+  .role-notice i { flex-shrink: 0; margin-top: 1px; }
+
+  .role-badge-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    font-size: 11px; font-weight: 700;
+  }
+
+  @media (max-width: 480px) {
+    .notif-panel { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
+  }
+
+  /* ===================== FORMS ===================== */
+  .form-grid { display: grid; gap: 16px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .field .hint { font-size: 10.5px; color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-top: -2px; }
+
+  input[type=text], input[type=number], input[type=password], input[type=url], select, textarea {
+    width: 100%;
+    padding: 10px 13px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  body.no-animations input, body.no-animations select, body.no-animations textarea { transition: none; }
+  input::placeholder, textarea::placeholder { color: var(--text-dim); }
+  input:focus, select:focus, textarea:focus { border-color: var(--red); background: var(--red-focus); }
+  textarea { resize: vertical; min-height: 130px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; }
+
+  select { appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239a9aa5' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 13px center; padding-right: 32px;
+  }
+  select option {
+    font-size: 13.5px;
+    background: #101014;
+    color: var(--text);
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px; font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.08s ease, opacity 0.12s ease, background 0.12s ease;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  body.no-animations .btn { transition: none; }
+  body.no-animations .btn:active:not(:disabled) { transform: none; }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-primary { background: var(--red); color: #fff; box-shadow: 0 8px 22px var(--red-shadow, rgba(229,9,20,0.25)); }
+  .btn-primary:hover:not(:disabled) { background: var(--red-hover); }
+  .btn-amber { background: var(--amber); color: #1a1200; box-shadow: 0 8px 22px rgba(245,166,35,0.2); }
+  .btn-amber:hover:not(:disabled) { background: #ffb93d; }
+  .btn-secondary { background: var(--card); color: var(--text); border-color: var(--border-strong); }
+  .btn-secondary:hover:not(:disabled) { background: var(--card-hover); }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover:not(:disabled) { background: #5c9bff; }
+  .btn-danger { background: rgba(220,38,38,0.14); color: #ff6b6b; border-color: rgba(220,38,38,0.3); padding: 6px 11px; font-size: 11.5px; }
+  .btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.25); }
+  .btn-block { width: 100%; }
+
+  /* ===================== TMDB SEARCH ===================== */
+  .search-box { position: relative; }
+  .search-results {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    max-height: 280px; overflow-y: auto;
+    background: #0c0c11; border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    z-index: 30;
+  }
+  .search-results.hidden { display: none; }
+  .result-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-item:hover { background: rgba(255,255,255,0.05); }
+  .result-poster { width: 32px; height: 46px; object-fit: cover; border-radius: 4px; background: #1a1a24; flex-shrink: 0; }
+  .result-details h4 { margin: 0; font-size: 12.5px; font-weight: 600; }
+  .result-details p { margin: 2px 0 0 0; font-size: 10.5px; color: var(--text-dim); }
+  .search-loading { padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center; }
+
+  .preview-box {
+    display: flex; gap: 14px; align-items: center;
+    background: rgba(47,214,107,0.05);
+    border: 1px dashed rgba(47,214,107,0.35);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-top: 4px;
+  }
+  .preview-box.hidden { display: none; }
+  .preview-poster { width: 44px; height: 64px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+  .preview-info strong { font-size: 13.5px; }
+  .preview-info p { margin: 3px 0 0 0; font-size: 11.5px; color: var(--text-muted); }
+  .preview-clear { margin-left: auto; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; padding: 4px; }
+  .preview-clear:hover { color: #fff; }
+
+  /* ===================== COUNTER BOX ===================== */
+  .counter-box {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(59,130,246,0.07);
+    border: 1px solid rgba(59,130,246,0.22);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 12px; color: #7db2ff; font-weight: 700;
+  }
+
+  /* ===================== TOAST ===================== */
+  #toastHost {
+    position: fixed; bottom: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 10px;
+    z-index: 999;
+  }
+  .toast {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px;
+    background: #0e0e13;
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--green);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.5);
+    font-size: 13px; font-weight: 600;
+    min-width: 260px;
+    animation: toastIn 0.2s ease;
+  }
+  body.no-animations .toast { animation: none; }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(16px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .toast.error { border-left-color: var(--red); }
+  .toast.info { border-left-color: var(--blue); }
+
+  /* ===================== CONFIG ===================== */
+  .config-grid { display: grid; gap: 16px; }
+  .config-note {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: rgba(245,166,35,0.06);
+    border: 1px solid rgba(245,166,35,0.22);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 12px; color: #e8c073; line-height: 1.5;
+  }
+  .config-note svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  .two-col { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 20px; align-items: start; }
+
+  /* ===================== AJUSTES: TABS ===================== */
+  .settings-tabs {
+    display: flex; gap: 6px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .settings-tab {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .settings-tab i { font-size: 12px; }
+  .settings-tab:hover { color: var(--text); }
+  .settings-tab.active { color: #fff; border-bottom-color: var(--red); }
+
+  .settings-tab-panel { display: none; }
+  .settings-tab-panel.active { display: block; }
+
+  /* ===================== TOGGLE SWITCH ===================== */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+  }
+  .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: rgba(255,255,255,0.12);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+  }
+  .switch-slider::before {
+    content: '';
+    position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.15s ease;
+  }
+  .switch input:checked + .switch-slider { background: var(--red); }
+  .switch input:checked + .switch-slider::before { left: 21px; }
+  .switch input:active + .switch-slider::before { width: 22px; }
+  .switch input:checked:active + .switch-slider::before { left: 17px; }
+  body.no-animations .switch-slider,
+  body.no-animations .switch-slider::before { transition: none; }
+
+  /* ===================== THEME GRID ===================== */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .theme-option {
+    display: flex; flex-direction: column; gap: 9px; align-items: center;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+  }
+  .theme-option.active { border-color: var(--red); background: rgba(255,255,255,0.03); }
+  .theme-option span { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+  .theme-option.active span { color: #fff; }
+  .theme-swatch { width: 100%; height: 60px; border-radius: 9px; border: 1px solid var(--border-strong); }
+  .theme-swatch-dark { background: linear-gradient(135deg, #050508, #16161c); }
+  .theme-swatch-glass { background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(59,130,246,0.25)); backdrop-filter: blur(2px); }
+  .theme-swatch-material { background: linear-gradient(135deg, #1c1c24, #2b2b36); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .theme-swatch-lite { background: #101014; }
+
+  /* ===================== ACCENT GRID ===================== */
+  .accent-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .accent-swatch {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--accent-c);
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+  }
+  .accent-swatch.active { border-color: #fff; }
+  .accent-swatch.active::after {
+    content: '\2713';
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 13px; font-weight: 900;
+  }
+
+  /* ===================== FONT GRID ===================== */
+  .font-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .font-option {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 14px 8px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+  }
+  .font-option:hover { background: rgba(255,255,255,0.045); }
+  .font-option.active { border-color: var(--red); background: rgba(255,255,255,0.03); }
+  .font-preview { font-size: 22px; font-weight: 600; line-height: 1; }
+  .font-option span:last-child { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .font-option.active span:last-child { color: #fff; }
+
+  @media (max-width: 480px) {
+    .font-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ===================== TEMAS ALTERNATIVOS ===================== */
+  body.theme-glass .glass-card,
+  body.theme-glass .stat-card,
+  body.theme-glass .sidebar {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  body.theme-glass .topbar { background: rgba(255,255,255,0.04); backdrop-filter: blur(18px); }
+
+  body.theme-material .glass-card,
+  body.theme-material .stat-card {
+    background: #1c1c24;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+    border-radius: 16px;
+  }
+  body.theme-material .sidebar { background: #17171e; border-right: none; }
+  body.theme-material .topbar { background: #17171e; border-bottom: none; }
+  body.theme-material .btn-primary { border-radius: 999px; }
+
+  body.theme-lite,
+  body.ultra-lite {
+    background-image: none !important;
+  }
+  body.theme-lite .glass-card,
+  body.theme-lite .stat-card,
+  body.ultra-lite .glass-card,
+  body.ultra-lite .stat-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--card) !important;
+    box-shadow: none !important;
+  }
+  body.theme-lite .topbar,
+  body.ultra-lite .topbar,
+  body.theme-lite .sidebar,
+  body.ultra-lite .sidebar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #08080b !important;
+  }
+  body.ultra-lite * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  body.ultra-lite .stat-card::after { display: none !important; }
+
+  @media (max-width: 640px) {
+    .theme-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 980px) {
+    .main { margin-left: 0; }
+    .hamburger-btn { display: flex; }
+    .sidebar {
+      transform: translateX(-100%);
+      width: 260px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-row-2, .form-row-3, .two-col { grid-template-columns: 1fr; }
+
+    .topbar { padding: 12px 14px; gap: 10px; }
+    .live-clock { display: none; }
+    .topbar-right { gap: 8px; flex-shrink: 0; }
+    .conn-pill span:not(.dot) { display: none; }
+    .conn-pill { padding: 8px; }
+    .admin-chip span { display: none; }
+    .admin-chip { padding: 3px; }
+
+    .content { padding: 18px 16px 50px 16px; }
+  }
+</style>
+</head>
+<body>
+<script src="config.js"></script>
+<div id="toastHost"></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="cerrarSidebar()"></div>
+<div class="notif-overlay" id="notifOverlay" onclick="cerrarNotifPanel()"></div>
+
+<!-- Pantalla de verificación mientras se confirma la sesión antes de mostrar cualquier dato -->
+<div id="sessionCheckScreen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:300;">
+  <div style="width:28px;height:28px;border:3px solid var(--border-strong);border-top-color:var(--red);border-radius:50%;animation:sessioncheckspin 0.7s linear infinite;"></div>
+</div>
+<style>@keyframes sessioncheckspin { to { transform: rotate(360deg); } }</style>
+
+<!-- ===================== APP (oculta hasta confirmar sesión) ===================== -->
+<div id="appShell" class="hidden">
+<div class="shell">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark" id="brandMark"><i class="fa-solid fa-play"></i></div>
+    </div>
+
+    <div class="nav-item active" data-view="view-dashboard" onclick="cambiarVista('view-dashboard', this)">
+      <span class="nav-icon"><i class="fa-solid fa-table-cells-large"></i></span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" data-view="view-movie" onclick="cambiarVista('view-movie', this)">
+      <span class="nav-icon"><i class="fa-solid fa-film"></i></span>
+      <span class="nav-label">Agregar Película</span>
+    </div>
+    <div class="nav-item" data-view="view-series" onclick="cambiarVista('view-series', this)">
+      <span class="nav-icon"><i class="fa-solid fa-clapperboard"></i></span>
+      <span class="nav-label">Agregar Serie</span>
+    </div>
+    <div class="nav-item" data-view="view-links" onclick="cambiarVista('view-links', this)">
+      <span class="nav-icon"><i class="fa-solid fa-link"></i></span>
+      <span class="nav-label">Gestión de Enlaces</span>
+    </div>
+    <div class="nav-item" data-view="view-calendar" onclick="cambiarVista('view-calendar', this)">
+      <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+      <span class="nav-label">Calendario de estrenos</span>
+    </div>
+    <div class="nav-item" data-view="view-config" onclick="cambiarVista('view-config', this)">
+      <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+      <span class="nav-label">Configuración de API</span>
+    </div>
+    <div class="nav-item" data-view="view-settings" onclick="cambiarVista('view-settings', this)">
+      <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
+      <span class="nav-label">Ajustes</span>
+    </div>
+
+    <div class="sidebar-storage">
+      <div class="storage-row"><span>Servidores</span><span id="storagePct">0%</span></div>
+      <div class="storage-bar"><div class="storage-fill" id="storageFill"></div></div>
+      <div class="storage-used" id="storageUsed">0 enlaces activos</div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-footer">
+      <div class="nav-item"><span class="nav-icon"><i class="fa-solid fa-wave-square"></i></span><span class="nav-label" id="sbStatusText">Server Status</span><span class="dot" id="sbDot" style="margin-left:auto;"></span></div>
+      <div class="nav-item" onclick="cerrarSesion()"><span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="nav-label">Cerrar sesión</span></div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger-btn" onclick="toggleSidebar()" aria-label="Abrir menú">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+      <div class="topbar-right">
+        <div class="live-clock">
+          <div class="time" id="clockTime">--:--:--</div>
+          <div class="date" id="clockDate">-- -- ----</div>
+        </div>
+        <div class="conn-pill"><span class="dot" id="connDot"></span><span id="connText">Conectando…</span></div>
+
+        <div class="notif-bell-wrap">
+          <button type="button" class="notif-bell-btn" onclick="toggleNotifPanel()" aria-label="Notificaciones">
+            <i class="fa-solid fa-bell"></i>
+            <span class="notif-badge hidden" id="notifBadge">0</span>
+          </button>
+          <div class="notif-panel hidden" id="notifPanel">
+            <div class="notif-panel-header">
+              <strong>Notificaciones</strong>
+              <div style="display:flex; gap:10px;">
+                <button type="button" class="notif-clear-btn" onclick="restaurarNotificacionesIgnoradas()" title="Vuelve a mostrar las notificaciones que ignoraste">Restaurar ignoradas</button>
+                <button type="button" class="notif-clear-btn" onclick="marcarNotificacionesLeidas()">Marcar leídas</button>
+              </div>
+            </div>
+            <div class="notif-panel-body" id="notifPanelBody">
+              <div class="empty-state">Sin notificaciones nuevas.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-chip">
+          <div class="admin-avatar">A</div>
+          <span>Administrador</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===================== VIEW: DASHBOARD ===================== -->
+      <section id="view-dashboard" class="view active">
+        <h1 class="dashboard-greeting" id="dashboardGreeting">Hola</h1>
+        <div class="stats-grid">
+          <div class="stat-card" style="--stat-bg: rgba(59,130,246,0.12); --stat-color:#7db2ff; --stat-glow: rgba(59,130,246,0.18);">
+            <div class="stat-icon"><i class="fa-solid fa-film"></i></div>
+            <div class="stat-value" id="statMovies">0</div>
+            <div class="stat-label">Películas registradas</div>
+          </div>
+          <div class="stat-card" style="--stat-bg: rgba(245,166,35,0.12); --stat-color:var(--amber); --stat-glow: rgba(245,166,35,0.18);">
+            <div class="stat-icon"><i class="fa-solid fa-clapperboard"></i></div>
+            <div class="stat-value" id="statSeries">0</div>
+            <div class="stat-label">Series registradas</div>
+          </div>
+          <div class="stat-card" style="--stat-bg: rgba(229,9,20,0.12); --stat-color:var(--red); --stat-glow: rgba(229,9,20,0.2);">
+            <div class="stat-icon"><i class="fa-solid fa-list"></i></div>
+            <div class="stat-value" id="statEpisodes">0</div>
+            <div class="stat-label">Episodios subidos</div>
+          </div>
+          <div class="stat-card" style="--stat-bg: rgba(47,214,107,0.12); --stat-color:var(--green); --stat-glow: rgba(47,214,107,0.18);">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg></div>
+            <div class="stat-value" id="statServers">0</div>
+            <div class="stat-label">Servidores activos (Auto)</div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-list"></i>
+            Últimos contenidos agregados
+          </h2>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Título</th><th>Tipo</th><th>Fecha</th></tr></thead>
+              <tbody id="dashboardRecentBody">
+                <tr><td colspan="3" class="empty-state">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass-card" style="margin-top:18px;">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-fire"></i>
+            Racha de actividad
+          </h2>
+          <p style="font-size:12px; color:var(--text-muted); margin:-10px 0 14px 0;">Días en los que agregaste contenido, últimas 14 semanas.</p>
+          <div id="activityHeatmap" class="heatmap-wrap">
+            <div class="empty-state">Cargando…</div>
+          </div>
+        </div>
+
+        <div class="two-col" style="margin-top:18px; align-items:stretch;">
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-server"></i>
+              Servidores más usados
+            </h2>
+            <div id="topServersBody">
+              <div class="empty-state">Cargando…</div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              Series sin episodios recientes
+            </h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:-10px 0 14px 0;">30+ días sin un capítulo nuevo.</p>
+            <div id="staleSeriesBody">
+              <div class="empty-state">Cargando…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card" style="margin-top:18px;">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-puzzle-piece"></i>
+            Contenido con capítulos incompletos
+          </h2>
+          <p style="font-size:12px; color:var(--text-muted); margin:-10px 0 14px 0;">Series con huecos en la numeración (ej: tienes cap 1, 2 y 4, falta el 3).</p>
+          <div id="incompleteSeriesBody">
+            <div class="empty-state">Cargando…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: AGREGAR PELÍCULA ===================== -->
+      <section id="view-movie" class="view">
+        <div class="two-col">
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-film"></i>
+              Nueva película
+            </h2>
+            <form id="peliForm" class="form-grid" onsubmit="procesarEnvioPeli(event)">
+              <div class="field">
+                <label>ID TMDB</label>
+                <input type="text" id="tmdb_id_peli" required placeholder="Ej: 157336">
+              </div>
+              <div class="form-row-2">
+                <div class="field">
+                  <label>Idioma</label>
+                  <select id="p_idioma">
+                    <option value="Latino">Latino</option>
+                    <option value="Castellano">Castellano</option>
+                    <option value="Subtitulado">Subtitulado</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Servidor base</label>
+                  <input type="text" id="p_servidor" placeholder="Ej: Netu">
+                </div>
+              </div>
+              <div class="field">
+                <label>URLs de servidores</label>
+                <span class="hint">Una URL por línea. Cada línea se guarda como un servidor distinto para esta película.</span>
+                <textarea id="lista_enlaces_peli" required placeholder="https://servidor1.com/embed/xxxx&#10;https://servidor2.com/embed/xxxx"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Guardar Película
+              </button>
+            </form>
+          </div>
+
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              Buscador TMDB
+            </h2>
+            <div class="search-box">
+              <input type="text" id="search_query_movie" placeholder="Buscar película por nombre…" autocomplete="off">
+              <div id="listaResultadosMovie" class="search-results hidden"></div>
+            </div>
+            <div id="previewContenidoMovie" class="preview-box hidden" style="margin-top:14px;">
+              <img id="previewPosterMovie" class="preview-poster" src="" alt="">
+              <div class="preview-info"><strong id="previewTituloMovie">-</strong><p id="previewMetaMovie">-</p></div>
+              <button type="button" class="preview-clear" onclick="limpiarPreview('movie')">✕</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: AGREGAR SERIE ===================== -->
+      <section id="view-series" class="view">
+        <div class="two-col">
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-clapperboard"></i>
+              Nueva serie / temporada
+            </h2>
+            <form id="serieForm" class="form-grid" onsubmit="procesarEnvioSerie(event)">
+              <div class="field">
+                <label>ID TMDB</label>
+                <input type="text" id="tmdb_id_serie" required placeholder="Ej: 71446">
+              </div>
+              <div class="form-row-3">
+                <div class="field">
+                  <label>Temporada</label>
+                  <input type="number" id="s_temporada" value="1" min="1" required oninput="actualizarContadorCapitulos()">
+                </div>
+                <div class="field">
+                  <label>Capítulo inicial</label>
+                  <input type="number" id="s_capitulo" value="1" min="1" required oninput="actualizarContadorCapitulos()">
+                </div>
+                <div class="field">
+                  <label>Idioma</label>
+                  <select id="s_idioma">
+                    <option value="Latino">Latino</option>
+                    <option value="Castellano">Castellano</option>
+                    <option value="Subtitulado">Subtitulado</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label>Enlaces por capítulo</label>
+                <select id="s_enlaces_por_capitulo" onchange="actualizarContadorCapitulos()">
+                  <option value="1">1 enlace = 1 capítulo</option>
+                  <option value="2">2 enlaces = 1 capítulo</option>
+                  <option value="3">3 enlaces = 1 capítulo</option>
+                  <option value="4">4 enlaces = 1 capítulo</option>
+                </select>
+                <span class="hint">Toma el valor por defecto de Configuración de API, pero puedes cambiarlo solo para esta carga.</span>
+              </div>
+              <div class="field">
+                <div class="counter-box">
+                  <span id="txt-cant-caps">Episodios en la lista: 0</span>
+                  <span id="txt-rango-caps">Rango estimado: —</span>
+                </div>
+                <label>Enlaces de episodios</label>
+                <span class="hint" id="hint_enlaces_serie">1 enlace por línea = 1 capítulo consecutivo, comenzando en el capítulo inicial indicado.</span>
+                <textarea id="lista_enlaces_serie" required oninput="actualizarContadorCapitulos()" placeholder="https://servidor.com/e/temp1-cap1&#10;https://servidor.com/e/temp1-cap2&#10;https://servidor.com/e/temp1-cap3"></textarea>
+              </div>
+              <button type="submit" class="btn btn-amber btn-block">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Guardar Serie
+              </button>
+            </form>
+          </div>
+
+          <div class="glass-card">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              Buscador TMDB
+            </h2>
+            <div class="search-box">
+              <input type="text" id="search_query_tv" placeholder="Buscar serie por nombre…" autocomplete="off">
+              <div id="listaResultadosTv" class="search-results hidden"></div>
+            </div>
+            <div id="previewContenidoTv" class="preview-box hidden" style="margin-top:14px;">
+              <img id="previewPosterTv" class="preview-poster" src="" alt="">
+              <div class="preview-info"><strong id="previewTituloTv">-</strong><p id="previewMetaTv">-</p></div>
+              <button type="button" class="preview-clear" onclick="limpiarPreview('tv')">✕</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: GESTIÓN DE ENLACES ===================== -->
+      <section id="view-links" class="view">
+        <div class="glass-card">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-link"></i>
+            Administrar enlaces almacenados
+          </h2>
+          <div class="form-row-3" style="align-items:end;">
+            <div class="field" style="grid-column: span 2;">
+              <label>Buscar por ID TMDB</label>
+              <input type="text" id="edit_search" placeholder="Escribe el ID…" onkeydown="if(event.key==='Enter') cargarEnlacesEditor()">
+            </div>
+            <div class="field">
+              <label>Tipo de contenido</label>
+              <select id="edit_tipo">
+                <option value="movie">Película</option>
+                <option value="tv">Serie</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" class="btn btn-blue" style="margin-top:14px;" onclick="cargarEnlacesEditor()">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            Buscar registros
+          </button>
+
+          <div id="contenedorTablaEditor" class="table-wrap hidden" style="margin-top:18px;">
+            <table class="data-table">
+              <thead><tr><th>Detalle almacenado</th><th>Idioma</th><th>Opciones</th></tr></thead>
+              <tbody id="cuerpoTablaEditor"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: CALENDARIO DE ESTRENOS ===================== -->
+      <section id="view-calendar" class="view">
+        <div class="settings-tabs">
+          <div class="settings-tab active" data-tab="tab-cal-catalogo" onclick="cambiarTabCalendario('tab-cal-catalogo', this)">
+            <i class="fa-solid fa-star"></i> Mi catálogo
+          </div>
+          <div class="settings-tab" data-tab="tab-cal-descubrir" onclick="cambiarTabCalendario('tab-cal-descubrir', this)">
+            <i class="fa-solid fa-compass"></i> Descubrir en TMDB
+          </div>
+        </div>
+
+        <!-- ---- TAB: MI CATÁLOGO ---- -->
+        <div id="tab-cal-catalogo" class="settings-tab-panel active">
+          <div class="glass-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+              <h2 class="section-heading" style="margin-bottom:0;">
+                <i class="fa-solid fa-star"></i>
+                Próximos estrenos
+              </h2>
+              <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cargarCalendarioEstrenos()">
+                <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+              </button>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin:-10px 0 16px 0;">Fechas oficiales de TMDB para títulos que ya tienes en tu catálogo: próximos episodios de tus series y estrenos de tus películas pendientes.</p>
+            <div id="proximosEstrenosBody">
+              <div class="empty-state">Cargando calendario…</div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="margin-top:18px;">
+            <h2 class="section-heading">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              Recién agregado a tu catálogo
+            </h2>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Título</th><th>Tipo</th><th>Fecha agregado</th></tr></thead>
+                <tbody id="recienAgregadoBody">
+                  <tr><td colspan="3" class="empty-state">Cargando…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- TAB: DESCUBRIR EN TMDB ---- -->
+        <div id="tab-cal-descubrir" class="settings-tab-panel">
+          <div class="glass-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+              <h2 class="section-heading" style="margin-bottom:0;">
+                <i class="fa-solid fa-compass"></i>
+                Descubrir estrenos
+              </h2>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-secondary" id="btnDiscoverTv" style="padding:8px 14px; font-size:12px;" onclick="cambiarModoDescubrir('tv')">
+                  <i class="fa-solid fa-clapperboard"></i> Series en emisión
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnDiscoverMovie" style="padding:8px 14px; font-size:12px;" onclick="cambiarModoDescubrir('movie')">
+                  <i class="fa-solid fa-film"></i> Próximos estrenos
+                </button>
+              </div>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin:8px 0 16px 0;">Contenido popular de TMDB, sin importar si ya lo tienes en tu catálogo. Lo que ya subiste aparece marcado con ✅.</p>
+            <div id="discoverBody">
+              <div class="empty-state">Selecciona una categoría para empezar.</div>
+            </div>
+            <div id="discoverLoadMoreWrap" class="hidden" style="text-align:center; margin-top:16px;">
+              <button type="button" class="btn btn-secondary" onclick="cargarMasDescubrir()">
+                <i class="fa-solid fa-plus"></i> Cargar más
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: CONFIGURACIÓN DE API ===================== -->
+      <section id="view-config" class="view">
+        <div class="glass-card" style="max-width: 640px;">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-list-ol"></i>
+            Reglas de orden de servidores — Series
+          </h2>
+          <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Define cuántas líneas del textarea de enlaces corresponden a un mismo capítulo. Este valor se usa por defecto al abrir el formulario de "Agregar Serie", pero puedes cambiarlo ahí puntualmente para una carga específica.</p>
+          <div class="field" style="max-width: 320px;">
+            <label>Enlaces por capítulo (por defecto)</label>
+            <select id="cfg_enlaces_por_capitulo" onchange="guardarReglaOrdenServidores(this.value)">
+              <option value="1">1 enlace = 1 capítulo</option>
+              <option value="2">2 enlaces = 1 capítulo</option>
+              <option value="3">3 enlaces = 1 capítulo</option>
+              <option value="4">4 enlaces = 1 capítulo</option>
+            </select>
+            <span class="hint">Ej: con "2 enlaces = 1 capítulo", las primeras 2 líneas son los servidores del capítulo 1, las siguientes 2 del capítulo 2, y así sucesivamente.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: AJUSTES ===================== -->
+      <section id="view-settings" class="view">
+        <div class="settings-tabs">
+          <div class="settings-tab active" data-tab="tab-perfil" onclick="cambiarTabAjustes('tab-perfil', this)">
+            <i class="fa-solid fa-user"></i> Perfil
+          </div>
+          <div class="settings-tab" data-tab="tab-seguridad" onclick="cambiarTabAjustes('tab-seguridad', this)">
+            <i class="fa-solid fa-shield-halved"></i> Seguridad
+          </div>
+          <div class="settings-tab" data-tab="tab-personalizacion" onclick="cambiarTabAjustes('tab-personalizacion', this)">
+            <i class="fa-solid fa-palette"></i> Personalización
+          </div>
+          <div class="settings-tab" data-tab="tab-roles" id="navRolesTab" onclick="cambiarTabAjustes('tab-roles', this)" style="display:none;">
+            <i class="fa-solid fa-user-shield"></i> Roles
+          </div>
+        </div>
+
+        <!-- ---- TAB: PERFIL ---- -->
+        <div id="tab-perfil" class="settings-tab-panel active">
+          <div class="glass-card" style="max-width: 640px;">
+            <h2 class="section-heading"><i class="fa-solid fa-user"></i> Datos del perfil</h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Este nickname y foto se guardan en tu cuenta (Supabase Auth), así que aparecerán igual en cualquier dispositivo donde inicies sesión.</p>
+            <div class="form-grid">
+              <div class="field" style="flex-direction:row; align-items:center; gap:16px;">
+                <div class="admin-avatar" style="width:56px;height:56px;font-size:20px;" id="profileAvatarPreview">A</div>
+                <div>
+                  <div style="font-weight:700; font-size:14px;" id="profileNamePreview">Administrador</div>
+                  <div style="font-size:11.5px; color:var(--text-dim);" id="profileEmailPreview">Cuenta de administrador</div>
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="field">
+                  <label>Nickname</label>
+                  <input type="text" id="cfg_profile_name" placeholder="Administrador">
+                </div>
+                <div class="field">
+                  <label>URL de foto de perfil</label>
+                  <input type="text" id="cfg_profile_avatar" placeholder="https://miurl.com/foto.jpg" oninput="previsualizarAvatarPerfil(this.value)">
+                </div>
+              </div>
+              <button type="button" class="btn btn-primary" style="width:fit-content;" onclick="guardarPerfil(event)">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- TAB: SEGURIDAD ---- -->
+        <div id="tab-seguridad" class="settings-tab-panel">
+          <div class="glass-card" style="max-width: 640px;">
+            <h2 class="section-heading"><i class="fa-solid fa-shield-halved"></i> Seguridad de la cuenta</h2>
+            <div class="config-note">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Este panel es una capa de configuración visual. Este archivo no incluye backend de autenticación; para aplicar seguridad real (login, hash de contraseñas, tokens), conecta un sistema de auth como Supabase Auth.</span>
+            </div>
+            <div class="form-grid" style="margin-top:18px;">
+              <div class="form-row-2">
+                <div class="field">
+                  <label>Contraseña actual</label>
+                  <input type="password" id="sec_current_pass" placeholder="••••••••">
+                </div>
+                <div class="field">
+                  <label>Nueva contraseña</label>
+                  <input type="password" id="sec_new_pass" placeholder="••••••••">
+                </div>
+              </div>
+              <button type="button" class="btn btn-primary" style="width:fit-content;" onclick="mostrarToast('Función de cambio de contraseña pendiente de conectar a un backend de autenticación.', 'info')">
+                <i class="fa-solid fa-key"></i> Actualizar contraseña
+              </button>
+
+              <div class="sidebar-divider" style="margin:6px 0;"></div>
+
+              <div class="toggle-row">
+                <div>
+                  <strong style="font-size:13px;">Verificación en dos pasos</strong>
+                  <p style="margin:3px 0 0 0; font-size:11.5px; color:var(--text-dim);">Requiere un código adicional al iniciar sesión.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="sec_2fa" onchange="mostrarToast(this.checked ? '2FA activado (visual).' : '2FA desactivado.', 'info')">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div>
+                  <strong style="font-size:13px;">Cerrar esta sesión</strong>
+                  <p style="margin:3px 0 0 0; font-size:11.5px; color:var(--text-dim);">Cierra tu sesión actual y vuelve a la pantalla de acceso.</p>
+                </div>
+                <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cerrarSesion()">Cerrar sesión</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- TAB: PERSONALIZACIÓN ---- -->
+        <div id="tab-personalizacion" class="settings-tab-panel">
+          <div class="glass-card" style="max-width: 760px;">
+            <h2 class="section-heading"><i class="fa-solid fa-palette"></i> Tema visual</h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Elige el estilo de interfaz. El cambio se aplica al instante.</p>
+            <div class="theme-grid">
+              <div class="theme-option active" data-theme="dark" onclick="aplicarTema('dark', this)">
+                <div class="theme-swatch theme-swatch-dark"></div>
+                <span>Dark Premium</span>
+              </div>
+              <div class="theme-option" data-theme="glass" onclick="aplicarTema('glass', this)">
+                <div class="theme-swatch theme-swatch-glass"></div>
+                <span>Glassmorphism</span>
+              </div>
+              <div class="theme-option" data-theme="material" onclick="aplicarTema('material', this)">
+                <div class="theme-swatch theme-swatch-material"></div>
+                <span>Material</span>
+              </div>
+              <div class="theme-option" data-theme="lite" onclick="aplicarTema('lite', this)">
+                <div class="theme-swatch theme-swatch-lite"></div>
+                <span>Ultra Lite</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="max-width: 760px; margin-top:18px;">
+            <h2 class="section-heading"><i class="fa-solid fa-droplet"></i> Color de acento</h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Cambia el color principal de botones, íconos activos y detalles.</p>
+            <div class="accent-grid">
+              <div class="accent-swatch active" style="--accent-c:#e50914;" data-accent="#e50914" onclick="aplicarAcento('#e50914', this)"></div>
+              <div class="accent-swatch" style="--accent-c:#3b82f6;" data-accent="#3b82f6" onclick="aplicarAcento('#3b82f6', this)"></div>
+              <div class="accent-swatch" style="--accent-c:#2fd66b;" data-accent="#2fd66b" onclick="aplicarAcento('#2fd66b', this)"></div>
+              <div class="accent-swatch" style="--accent-c:#f5a623;" data-accent="#f5a623" onclick="aplicarAcento('#f5a623', this)"></div>
+              <div class="accent-swatch" style="--accent-c:#a855f7;" data-accent="#a855f7" onclick="aplicarAcento('#a855f7', this)"></div>
+              <div class="accent-swatch" style="--accent-c:#ec4899;" data-accent="#ec4899" onclick="aplicarAcento('#ec4899', this)"></div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="max-width: 760px; margin-top:18px;">
+            <h2 class="section-heading"><i class="fa-solid fa-font"></i> Tipografía</h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Elige la fuente del texto en toda la interfaz. Poppins es la predeterminada.</p>
+            <div class="font-grid" id="fontGrid">
+              <div class="font-option active" data-font="Poppins" onclick="aplicarFuente('Poppins', this)">
+                <span class="font-preview" style="font-family:'Poppins', sans-serif;">Aa</span>
+                <span>Poppins</span>
+              </div>
+              <div class="font-option" data-font="Inter" onclick="aplicarFuente('Inter', this)">
+                <span class="font-preview" style="font-family:'Inter', sans-serif;">Aa</span>
+                <span>Inter</span>
+              </div>
+              <div class="font-option" data-font="Roboto" onclick="aplicarFuente('Roboto', this)">
+                <span class="font-preview" style="font-family:'Roboto', sans-serif;">Aa</span>
+                <span>Roboto</span>
+              </div>
+              <div class="font-option" data-font="Manrope" onclick="aplicarFuente('Manrope', this)">
+                <span class="font-preview" style="font-family:'Manrope', sans-serif;">Aa</span>
+                <span>Manrope</span>
+              </div>
+              <div class="font-option" data-font="Space Grotesk" onclick="aplicarFuente('Space Grotesk', this)">
+                <span class="font-preview" style="font-family:'Space Grotesk', sans-serif;">Aa</span>
+                <span>Space Grotesk</span>
+              </div>
+              <div class="font-option" data-font="Sora" onclick="aplicarFuente('Sora', this)">
+                <span class="font-preview" style="font-family:'Sora', sans-serif;">Aa</span>
+                <span>Sora</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="max-width: 760px; margin-top:18px;">
+            <h2 class="section-heading"><i class="fa-solid fa-gauge"></i> Rendimiento</h2>
+            <div class="toggle-row">
+              <div>
+                <strong style="font-size:13px;">Modo Ultra Lite</strong>
+                <p style="margin:3px 0 0 0; font-size:11.5px; color:var(--text-dim);">Desactiva blur, sombras y gradientes pesados. Ideal para equipos de bajos recursos.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="ultraLiteToggle" onchange="toggleUltraLite(this.checked)">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+            <div class="sidebar-divider" style="margin:4px 0;"></div>
+            <div class="toggle-row">
+              <div>
+                <strong style="font-size:13px;">Animaciones de interfaz</strong>
+                <p style="margin:3px 0 0 0; font-size:11.5px; color:var(--text-dim);">Transiciones suaves al cambiar de vista, pasar el cursor y mostrar avisos.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="animationsToggle" checked onchange="toggleAnimaciones(this.checked)">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- TAB: ROLES (solo Admin) ---- -->
+        <div id="tab-roles" class="settings-tab-panel">
+          <div class="glass-card" style="max-width: 640px;">
+            <h2 class="section-heading"><i class="fa-solid fa-user-shield"></i> Gestión de roles</h2>
+            <div class="role-notice">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Los roles se guardan en Supabase Auth y se aplican de inmediato en la interfaz. Para que las restricciones de base de datos (RLS) también respeten el nuevo rol, la persona debe cerrar sesión y volver a iniciarla una vez.</span>
+            </div>
+            <div class="form-grid" style="margin-top:14px;">
+              <div class="field">
+                <label>Correo del usuario</label>
+                <input type="text" id="role_target_email" placeholder="usuario@correo.com">
+                <span class="hint">Debe ser un usuario que ya exista en Supabase Auth (créalo primero desde el dashboard de Supabase si aún no existe).</span>
+              </div>
+              <div class="field">
+                <label>Nuevo rol</label>
+                <select id="role_target_value">
+                  <option value="admin">Administrador</option>
+                  <option value="uploader" selected>Uploader</option>
+                </select>
+              </div>
+              <div class="config-note">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Asignar roles a otros usuarios requiere permisos de administrador en Supabase (service_role), que este panel no incluye por seguridad. Usa el botón de abajo para generar el comando SQL exacto y ejecútalo tú mismo en el SQL Editor de Supabase.</span>
+              </div>
+              <button type="button" class="btn btn-primary" style="width:fit-content;" onclick="generarSqlAsignarRol()">
+                <i class="fa-solid fa-code"></i> Generar comando SQL
+              </button>
+              <div class="field hidden" id="roleSqlOutputWrap">
+                <label>Copia y ejecuta esto en Supabase → SQL Editor</label>
+                <textarea id="roleSqlOutput" readonly style="font-size:11.5px;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="max-width: 640px; margin-top:18px;">
+            <h2 class="section-heading"><i class="fa-solid fa-id-badge"></i> Tu rol actual</h2>
+            <div id="currentRoleDisplay" class="role-badge-pill">
+              <i class="fa-solid fa-user"></i>
+              <span id="profileRoleBadge">—</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // =========================================================================
+  // MÓDULO 5: CONFIGURACIÓN DE CREDENCIALES
+  // Las credenciales viven en config.js (cárgalo junto a este archivo).
+  // =========================================================================
+  if (!window.STREAM_CONFIG) {
+    document.write('<div style="padding:40px;font-family:sans-serif;color:#fff;background:#050508;"><h2>⚠️ Falta config.js</h2><p>No se encontró <code>window.STREAM_CONFIG</code>. Asegúrate de subir <code>config.js</code> junto a este archivo y de que se cargue antes.</p></div>');
+    throw new Error('config.js no cargado: window.STREAM_CONFIG no está definido.');
+  }
+
+  const CFG = window.STREAM_CONFIG;
+  const TMDB_API_KEY = CFG.TMDB_API_KEY;
+  const SUPABASE_URL = CFG.SUPABASE_URL;
+  const SUPABASE_KEY = CFG.SUPABASE_KEY;
+  const TABLA_ENLACES = CFG.TABLA_ENLACES;
+
+  // Proyecto de Supabase separado, usado solo para autenticación (login/logout)
+  const AUTH_SUPABASE_URL = CFG.AUTH_SUPABASE_URL;
+  const AUTH_SUPABASE_KEY = CFG.AUTH_SUPABASE_KEY;
+
+  // Personalización de marca (también editable en Ajustes → Personalización)
+  const DEFAULT_BRAND_LOGO_URL = CFG.BRAND_LOGO_URL || "";
+  const DEFAULT_BRAND_NAME = CFG.BRAND_NAME || "StreamAdmin";
+  // =========================================================================
+
+  const SUPABASE_HEADERS = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_KEY,
+    "Authorization": `Bearer ${SUPABASE_KEY}`
+  };
+
+  const AUTH_HEADERS_BASE = {
+    "Content-Type": "application/json",
+    "apikey": AUTH_SUPABASE_KEY
+  };
+
+  /* ---------------------------------------------------------------------
+   * TOASTS
+   * ------------------------------------------------------------------- */
+  function mostrarToast(mensaje, tipo = 'success') {
+    const host = document.getElementById('toastHost');
+    const toast = document.createElement('div');
+    toast.className = `toast ${tipo}`;
+    const icon = tipo === 'error' ? '⚠️' : tipo === 'info' ? 'ℹ️' : '✅';
+    toast.innerHTML = `<span>${icon}</span><span>${mensaje}</span>`;
+    host.appendChild(toast);
+    setTimeout(() => {
+      if (document.body.classList.contains('no-animations')) {
+        toast.remove();
+      } else {
+        toast.style.transition = 'opacity 0.2s ease';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 200);
+      }
+    }, 4000);
+  }
+
+  /* ---------------------------------------------------------------------
+   * AUTENTICACIÓN (Supabase Auth — proyecto separado)
+   * El login vive en login.html; este archivo solo valida la sesión ya
+   * existente y redirige a login.html si no es válida.
+   * ------------------------------------------------------------------- */
+  let currentSession = null;
+  let currentUser = null;
+  const LOGIN_URL = 'login.html';
+
+  function irALogin() {
+    window.location.href = LOGIN_URL;
+  }
+
+  function mostrarSesionActiva(user, emailFallback) {
+    document.getElementById('sessionCheckScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
+
+    const email = user?.email || emailFallback || '';
+    const meta = user?.user_metadata || {};
+    const nickname = meta.nickname || email.split('@')[0] || 'Administrador';
+    const avatarUrl = meta.avatar_url || '';
+
+    currentRole = meta.role || 'uploader';
+    aplicarPerfilVisual(nickname, avatarUrl, email);
+    aplicarRestriccionesPorRol();
+
+    // Precarga los campos del formulario de Ajustes → Perfil
+    const inputNombre = document.getElementById('cfg_profile_name');
+    const inputAvatar = document.getElementById('cfg_profile_avatar');
+    if (inputNombre) inputNombre.value = meta.nickname || '';
+    if (inputAvatar) inputAvatar.value = avatarUrl;
+  }
+
+  /* ---------------------------------------------------------------------
+   * ROLES Y PERMISOS
+   * 'admin' tiene acceso completo, incluyendo Gestión de Enlaces y la
+   * gestión de roles de otros usuarios.
+   * 'uploader' puede agregar películas/series igual que un admin (van
+   * directo a la tabla enlaces, sin revisión), pero no ve la sección
+   * Gestión de Enlaces ni puede gestionar roles.
+   * ------------------------------------------------------------------- */
+  let currentRole = 'uploader';
+
+  const ROLE_LABELS = {
+    admin: 'Administrador',
+    uploader: 'Uploader'
+  };
+
+  function esAdmin() {
+    return currentRole === 'admin';
+  }
+
+  function aplicarRestriccionesPorRol() {
+    const navLinks = document.querySelector('.nav-item[data-view="view-links"]');
+    if (navLinks) navLinks.style.display = esAdmin() ? '' : 'none';
+
+    const navRoles = document.getElementById('navRolesTab');
+    if (navRoles) navRoles.style.display = esAdmin() ? '' : 'none';
+
+    const roleBadge = document.getElementById('profileRoleBadge');
+    if (roleBadge) roleBadge.innerText = ROLE_LABELS[currentRole] || currentRole;
+  }
+
+  function aplicarPerfilVisual(nickname, avatarUrl, email) {
+    currentNickname = nickname;
+    document.querySelectorAll('.admin-chip span').forEach(s => s.innerText = nickname);
+    const nameEl = document.getElementById('profileNamePreview');
+    if (nameEl) nameEl.innerText = nickname;
+    const emailEl = document.getElementById('profileEmailPreview');
+    if (emailEl && email) emailEl.innerText = email;
+
+    document.querySelectorAll('.admin-avatar').forEach(a => {
+      if (avatarUrl) {
+        a.innerHTML = `<img src="${avatarUrl}" alt="Avatar" onerror="this.parentElement.innerText='${nickname.charAt(0).toUpperCase()}';">`;
+      } else {
+        a.innerHTML = '';
+        a.innerText = nickname.charAt(0).toUpperCase();
+      }
+    });
+
+    actualizarSaludoDashboard();
+  }
+
+  function previsualizarAvatarPerfil(url) {
+    const preview = document.getElementById('profileAvatarPreview');
+    const nombre = document.getElementById('cfg_profile_name').value.trim() || 'Administrador';
+    if (!preview) return;
+    if (url && url.trim() !== '') {
+      preview.innerHTML = `<img src="${url.trim()}" alt="Avatar" onerror="this.parentElement.innerText='${nombre.charAt(0).toUpperCase()}';">`;
+    } else {
+      preview.innerHTML = '';
+      preview.innerText = nombre.charAt(0).toUpperCase();
+    }
+  }
+
+  async function cerrarSesion() {
+    try {
+      if (currentSession?.access_token) {
+        await fetch(`${AUTH_SUPABASE_URL}/auth/v1/logout`, {
+          method: 'POST',
+          headers: { ...AUTH_HEADERS_BASE, Authorization: `Bearer ${currentSession.access_token}` }
+        });
+      }
+    } catch (e) { /* ignorar errores de red al cerrar sesión */ }
+    try {
+      await fetch('/session-logout', { method: 'POST', credentials: 'include' });
+    } catch (e) { /* el Worker puede no estar desplegado; no bloquea el cierre de sesión */ }
+    currentSession = null;
+    currentUser = null;
+    await eliminarPreferencia('auth_session');
+    irALogin();
+  }
+
+  async function verificarSesionGuardada() {
+    let raw = null;
+    try {
+      raw = await cargarPreferencia('auth_session');
+    } catch (e) { raw = null; }
+
+    if (!raw) { irALogin(); return false; }
+
+    let sesion;
+    try {
+      sesion = JSON.parse(raw);
+    } catch (e) {
+      await eliminarPreferencia('auth_session');
+      irALogin();
+      return false;
+    }
+
+    // Intento 1: el access_token guardado sigue siendo válido
+    try {
+      const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/user`, {
+        headers: { ...AUTH_HEADERS_BASE, Authorization: `Bearer ${sesion.access_token}` }
+      });
+      if (res.ok) {
+        const userData = await res.json();
+        currentSession = sesion;
+        currentUser = userData;
+        mostrarSesionActiva(userData, sesion.email);
+        return true;
+      }
+    } catch (e) { /* red caída, seguimos al intento de refresh */ }
+
+    // Intento 2: el access_token expiró (normal cada ~1h) — renovarlo con el refresh_token,
+    // sin pedirle la contraseña de nuevo al usuario
+    if (sesion.refresh_token) {
+      const renovada = await renovarSesionConRefreshToken(sesion.refresh_token);
+      if (renovada) return true;
+    }
+
+    await eliminarPreferencia('auth_session');
+    irALogin();
+    return false;
+  }
+
+  async function renovarSesionConRefreshToken(refreshToken) {
+    try {
+      const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: AUTH_HEADERS_BASE,
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        const nuevaSesion = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || refreshToken,
+          email: data.user?.email || '',
+          expires_at: data.expires_at
+        };
+        currentSession = nuevaSesion;
+        currentUser = data.user || null;
+        await guardarPreferencia('auth_session', JSON.stringify(nuevaSesion));
+        mostrarSesionActiva(data.user, nuevaSesion.email);
+        return true;
+      }
+    } catch (e) { /* refresh_token también inválido/expirado */ }
+    return false;
+  }
+
+  /* ---------------------------------------------------------------------
+   * NAVEGACIÓN SIDEBAR
+   * ------------------------------------------------------------------- */
+  const VIEW_META = {
+    'view-dashboard': { title: 'Dashboard' },
+    'view-movie': { title: 'Agregar Película' },
+    'view-series': { title: 'Agregar Serie' },
+    'view-links': { title: 'Gestión de Enlaces' },
+    'view-calendar': { title: 'Calendario de estrenos' },
+    'view-config': { title: 'Configuración de API' },
+    'view-settings': { title: 'Ajustes' },
+  };
+
+  function cambiarVista(viewId, el) {
+    document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(viewId).classList.add('active');
+
+    const meta = VIEW_META[viewId];
+    document.title = `${meta.title} — ${DEFAULT_BRAND_NAME}`;
+
+    if (viewId === 'view-dashboard') {
+      cargarEstadisticas();
+      actualizarSaludoDashboard();
+    }
+    if (viewId === 'view-config') pintarConfig();
+    if (viewId === 'view-calendar') cargarCalendarioEstrenos();
+
+    if (window.innerWidth <= 980) cerrarSidebar();
+  }
+
+  /* ---------------------------------------------------------------------
+   * SIDEBAR (drawer en móvil)
+   * ------------------------------------------------------------------- */
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('visible');
+  }
+  function cerrarSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('visible');
+  }
+
+  /* ---------------------------------------------------------------------
+   * RELOJ EN VIVO
+   * ------------------------------------------------------------------- */
+  function actualizarReloj() {
+    const now = new Date();
+    document.getElementById('clockTime').innerText = now.toLocaleTimeString('es-ES', { hour12: false });
+    document.getElementById('clockDate').innerText = now.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+
+  /* ---------------------------------------------------------------------
+   * SALUDO DINÁMICO (Dashboard, estilo Spotify)
+   * ------------------------------------------------------------------- */
+  let currentNickname = '';
+
+  function actualizarSaludoDashboard() {
+    const el = document.getElementById('dashboardGreeting');
+    if (!el) return;
+    const hora = new Date().getHours();
+    let saludo;
+    if (hora >= 5 && hora < 12) saludo = 'Buenos días';
+    else if (hora >= 12 && hora < 19) saludo = 'Buenas tardes';
+    else saludo = 'Buenas noches';
+    el.innerText = currentNickname ? `${saludo}, ${currentNickname}` : `${saludo}`;
+  }
+  actualizarSaludoDashboard();
+  setInterval(actualizarSaludoDashboard, 60000);
+
+  /* ---------------------------------------------------------------------
+   * ESTADO DE CONEXIÓN SUPABASE
+   * ------------------------------------------------------------------- */
+  async function verificarConexionSupabase() {
+    const dot = document.getElementById('connDot');
+    const text = document.getElementById('connText');
+    const sbDot = document.getElementById('sbDot');
+    const sbText = document.getElementById('sbStatusText');
+    const setStatus = (dotClass, message) => {
+      if (dot) dot.className = dotClass;
+      if (text) text.innerText = message;
+      if (sbDot) sbDot.className = dotClass;
+    };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=id&limit=1`, { headers: SUPABASE_HEADERS });
+      if (res.ok) {
+        setStatus('dot', 'Supabase conectado');
+      } else {
+        setStatus('dot off', 'Error de conexión');
+      }
+    } catch (e) {
+      setStatus('dot off', 'Sin conexión');
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * MÓDULO 1: DASHBOARD DE ESTADÍSTICAS
+   * ------------------------------------------------------------------- */
+  async function cargarEstadisticas() {
+    try {
+      const [moviesRes, seriesRes, totalRes, recentRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?tipo=eq.movie&select=tmdb_id`, { headers: { ...SUPABASE_HEADERS, Prefer: 'count=exact' } }),
+        fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?tipo=eq.tv&select=tmdb_id,temporada,episodio`, { headers: SUPABASE_HEADERS }),
+        fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=id`, { headers: { ...SUPABASE_HEADERS, Prefer: 'count=exact' } }),
+        fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=tmdb_id,tipo,created_at&order=created_at.desc&limit=8`, { headers: SUPABASE_HEADERS })
+      ]);
+
+      // Películas: contar tmdb_id únicos
+      const moviesData = moviesRes.ok ? await moviesRes.json() : [];
+      const uniqueMovies = new Set(moviesData.map(r => r.tmdb_id)).size;
+      document.getElementById('statMovies').innerText = uniqueMovies;
+
+      // Series: contar tmdb_id únicos y episodios únicos (por serie+temp+cap)
+      const seriesData = seriesRes.ok ? await seriesRes.json() : [];
+      const uniqueSeries = new Set(seriesData.map(r => r.tmdb_id)).size;
+      const uniqueEpisodes = new Set(seriesData.map(r => `${r.tmdb_id}-${r.temporada}-${r.episodio}`)).size;
+      document.getElementById('statSeries').innerText = uniqueSeries;
+      document.getElementById('statEpisodes').innerText = uniqueEpisodes;
+
+      // Total de filas = servidores activos
+      const countHeader = totalRes.headers.get('content-range');
+      let totalServers = 0;
+      if (countHeader && countHeader.includes('/')) {
+        totalServers = parseInt(countHeader.split('/')[1]) || 0;
+      }
+      document.getElementById('statServers').innerText = totalServers;
+
+      // Sidebar storage box: refleja servidores activos como % ilustrativo (cap visual en 500)
+      const pct = Math.min(100, Math.round((totalServers / 500) * 100));
+      document.getElementById('storagePct').innerText = `${pct}%`;
+      document.getElementById('storageFill').style.width = `${pct}%`;
+      document.getElementById('storageUsed').innerText = `${totalServers} enlaces activos`;
+
+      // Últimos contenidos agregados
+      const recentBody = document.getElementById('dashboardRecentBody');
+      if (recentRes.ok) {
+        const recent = await recentRes.json();
+        const seen = new Set();
+        const deduped = [];
+        for (const item of recent) {
+          const key = `${item.tmdb_id}-${item.tipo}`;
+          if (!seen.has(key)) { seen.add(key); deduped.push(item); }
+        }
+        if (deduped.length === 0) {
+          recentBody.innerHTML = '<tr><td colspan="3" class="empty-state">Todavía no hay contenido cargado.</td></tr>';
+        } else {
+          recentBody.innerHTML = deduped.map(item => {
+            const fecha = item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '—';
+            const badge = item.tipo === 'movie' ? '<span class="badge movie">🎬 Película</span>' : '<span class="badge tv">🍿 Serie</span>';
+            return `<tr>
+              <td class="row-title-cell"><img class="row-poster" src="https://image.tmdb.org/t/p/w92" onerror="this.style.display='none'"><div><strong>TMDB #${item.tmdb_id}</strong></div></td>
+              <td>${badge}</td>
+              <td>${fecha}</td>
+            </tr>`;
+          }).join('');
+        }
+      } else {
+        recentBody.innerHTML = '<tr><td colspan="3" class="empty-state">No se pudo cargar el historial reciente.</td></tr>';
+      }
+    } catch (err) {
+      mostrarToast('No se pudieron cargar las estadísticas del dashboard.', 'error');
+      document.getElementById('dashboardRecentBody').innerHTML = '<tr><td colspan="3" class="empty-state">Error al conectar con Supabase.</td></tr>';
+    }
+    cargarInsightsDashboard();
+  }
+
+  /* ---------------------------------------------------------------------
+   * INSIGHTS DEL DASHBOARD: racha de actividad, servidores más usados,
+   * series inactivas y contenido con capítulos incompletos.
+   * Todo se calcula a partir del mismo catálogo completo (paginado).
+   * ------------------------------------------------------------------- */
+  async function cargarInsightsDashboard() {
+    try {
+      const filas = await obtenerTodasLasFilasCatalogoCompleto();
+      renderRachaActividad(filas);
+      renderTopServidores(filas);
+      const seriesInactivas = calcularSeriesInactivas(filas);
+      const seriesIncompletas = calcularSeriesIncompletas(filas);
+      renderSeriesInactivas(seriesInactivas);
+      renderSeriesIncompletas(seriesIncompletas);
+      actualizarNotificaciones(seriesInactivas, seriesIncompletas);
+    } catch (err) {
+      console.warn('No se pudieron cargar los insights del dashboard:', err);
+    }
+  }
+
+  // Igual que obtenerTodasLasFilasCatalogo() pero trayendo también servidor/temporada/episodio,
+  // necesarios para los cálculos de este módulo.
+  async function obtenerTodasLasFilasCatalogoCompleto() {
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let todas = [];
+    while (true) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=tmdb_id,tipo,servidor,url_embed,temporada,episodio,created_at&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
+        { headers: SUPABASE_HEADERS }
+      );
+      if (!res.ok) throw new Error('No se pudo consultar Supabase');
+      const pagina = await res.json();
+      todas = todas.concat(pagina);
+      if (pagina.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    return todas;
+  }
+
+  // ---- Racha de actividad (heatmap tipo GitHub, últimas 14 semanas) ----
+  function renderRachaActividad(filas) {
+    const contenedor = document.getElementById('activityHeatmap');
+    if (!contenedor) return;
+
+    const conteoPorDia = {};
+    filas.forEach(f => {
+      if (!f.created_at) return;
+      const key = f.created_at.slice(0, 10); // YYYY-MM-DD
+      conteoPorDia[key] = (conteoPorDia[key] || 0) + 1;
+    });
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const totalDias = 14 * 7;
+    // Alinear al domingo más reciente para que las columnas sean semanas completas
+    const finSemana = new Date(hoy);
+    finSemana.setDate(finSemana.getDate() + (6 - finSemana.getDay()));
+
+    const dias = [];
+    for (let i = totalDias - 1; i >= 0; i--) {
+      const d = new Date(finSemana);
+      d.setDate(d.getDate() - i);
+      dias.push(d);
+    }
+
+    const maxConteo = Math.max(1, ...Object.values(conteoPorDia));
+
+    const celdas = dias.map(d => {
+      const key = d.toISOString().slice(0, 10);
+      const cantidad = conteoPorDia[key] || 0;
+      let nivel = 0;
+      if (cantidad > 0) {
+        const ratio = cantidad / maxConteo;
+        nivel = ratio > 0.75 ? 4 : ratio > 0.5 ? 3 : ratio > 0.25 ? 2 : 1;
+      }
+      const esFuturo = d > hoy;
+      const fechaLegible = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+      const titulo = esFuturo ? '' : `title="${fechaLegible}: ${cantidad} enlace(s)"`;
+      return `<div class="heatmap-cell" data-level="${esFuturo ? '' : nivel}" ${titulo}></div>`;
+    }).join('');
+
+    contenedor.innerHTML = `
+      <div class="heatmap-grid">${celdas}</div>
+      <div class="heatmap-legend">
+        <span>Menos</span>
+        <div class="heatmap-cell" data-level=""></div>
+        <div class="heatmap-cell" data-level="1"></div>
+        <div class="heatmap-cell" data-level="2"></div>
+        <div class="heatmap-cell" data-level="3"></div>
+        <div class="heatmap-cell" data-level="4"></div>
+        <span>Más</span>
+      </div>`;
+  }
+
+  // ---- Servidores más usados ----
+  function renderTopServidores(filas) {
+    const contenedor = document.getElementById('topServersBody');
+    if (!contenedor) return;
+
+    const conteo = {};
+    filas.forEach(f => {
+      let etiqueta = (f.servidor || '').trim();
+      if (!etiqueta || etiqueta.toLowerCase() === 'auto') {
+        // Si no hay nombre de servidor explícito, se agrupa por dominio de la URL
+        etiqueta = extraerDominio(f.url_embed) || 'Sin identificar';
+      }
+      conteo[etiqueta] = (conteo[etiqueta] || 0) + 1;
+    });
+
+    const ranking = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+    if (ranking.length === 0) {
+      contenedor.innerHTML = '<div class="empty-state">Aún no hay enlaces guardados.</div>';
+      return;
+    }
+
+    const maxCount = ranking[0][1];
+    contenedor.innerHTML = `<div class="rank-list">${ranking.map(([nombre, cantidad], i) => `
+      <div class="rank-item">
+        <span class="rank-num">${i + 1}</span>
+        <span class="rank-label">${nombre}</span>
+        <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${Math.round((cantidad / maxCount) * 100)}%"></div></div>
+        <span class="rank-count">${cantidad}</span>
+      </div>`).join('')}</div>`;
+  }
+
+  function extraerDominio(url) {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      return u.hostname.replace(/^www\./, '');
+    } catch (e) { return null; }
+  }
+
+  // ---- Series sin episodios recientes (30+ días sin capítulo nuevo) ----
+  function calcularSeriesInactivas(filas) {
+    const series = filas.filter(f => f.tipo === 'tv');
+    const porSerie = {};
+    series.forEach(f => {
+      if (!porSerie[f.tmdb_id]) porSerie[f.tmdb_id] = [];
+      porSerie[f.tmdb_id].push(f);
+    });
+
+    const hoy = new Date();
+    const LIMITE_DIAS = 30;
+    const resultado = [];
+
+    Object.entries(porSerie).forEach(([tmdbId, filasSerie]) => {
+      const ultimaFecha = filasSerie.reduce((max, f) => {
+        const d = new Date(f.created_at);
+        return d > max ? d : max;
+      }, new Date(0));
+      const diffDias = Math.floor((hoy - ultimaFecha) / (1000 * 60 * 60 * 24));
+      if (diffDias >= LIMITE_DIAS) {
+        resultado.push({ tmdbId, diffDias, ultimaFecha });
+      }
+    });
+
+    return resultado.sort((a, b) => b.diffDias - a.diffDias);
+  }
+
+  function renderSeriesInactivas(lista) {
+    const contenedor = document.getElementById('staleSeriesBody');
+    if (!contenedor) return;
+
+    if (lista.length === 0) {
+      contenedor.innerHTML = '<div class="empty-state">Todas tus series tienen episodios recientes. 🎉</div>';
+      return;
+    }
+
+    contenedor.innerHTML = `<div class="alert-list">${lista.slice(0, 8).map(item => `
+      <div class="alert-item">
+        <div>
+          <strong>TMDB #${item.tmdbId}</strong>
+          <span>Último capítulo hace ${item.diffDias} días</span>
+        </div>
+        <i class="fa-solid fa-clock" style="color:var(--amber); font-size:13px;"></i>
+      </div>`).join('')}</div>`;
+  }
+
+  // ---- Series con huecos en la numeración de capítulos ----
+  function calcularSeriesIncompletas(filas) {
+    const series = filas.filter(f => f.tipo === 'tv');
+    const porSerieTemp = {};
+    series.forEach(f => {
+      const key = `${f.tmdb_id}-${f.temporada}`;
+      if (!porSerieTemp[key]) porSerieTemp[key] = { tmdbId: f.tmdb_id, temporada: f.temporada, episodios: new Set() };
+      porSerieTemp[key].episodios.add(f.episodio);
+    });
+
+    const resultado = [];
+    Object.values(porSerieTemp).forEach(grupo => {
+      const episodios = [...grupo.episodios].filter(e => e !== null && e !== undefined && e > 0).sort((a, b) => a - b);
+      if (episodios.length < 2) return;
+      const min = episodios[0];
+      const max = episodios[episodios.length - 1];
+      const faltantes = [];
+      for (let n = min; n <= max; n++) {
+        if (!grupo.episodios.has(n)) faltantes.push(n);
+      }
+      if (faltantes.length > 0) {
+        resultado.push({ tmdbId: grupo.tmdbId, temporada: grupo.temporada, faltantes, rango: `${min}–${max}` });
+      }
+    });
+
+    return resultado.sort((a, b) => b.faltantes.length - a.faltantes.length);
+  }
+
+  function renderSeriesIncompletas(lista) {
+    const contenedor = document.getElementById('incompleteSeriesBody');
+    if (!contenedor) return;
+
+    if (lista.length === 0) {
+      contenedor.innerHTML = '<div class="empty-state">No se detectaron huecos en la numeración de capítulos. 🎉</div>';
+      return;
+    }
+
+    contenedor.innerHTML = `<div class="alert-list">${lista.slice(0, 8).map(item => `
+      <div class="alert-item danger">
+        <div>
+          <strong>TMDB #${item.tmdbId} · Temporada ${item.temporada}</strong>
+          <span>Rango ${item.rango} — faltan capítulo(s): ${item.faltantes.join(', ')}</span>
+        </div>
+        <i class="fa-solid fa-puzzle-piece" style="color:var(--red); font-size:13px;"></i>
+      </div>`).join('')}</div>`;
+  }
+
+  /* ---------------------------------------------------------------------
+   * SISTEMA DE NOTIFICACIONES (campanita del header)
+   * Agrupa las alertas de series inactivas y contenido incompleto para
+   * revisarlas después, con estado leído/no-leído persistente.
+   * ------------------------------------------------------------------- */
+  let notificacionesActuales = [];
+
+  async function actualizarNotificaciones(seriesInactivas, seriesIncompletas) {
+    const notifs = [];
+    seriesInactivas.slice(0, 15).forEach(item => {
+      notifs.push({
+        id: `stale-${item.tmdbId}`,
+        tipo: 'warning',
+        icono: 'fa-clock',
+        titulo: `Serie #${item.tmdbId} sin novedades`,
+        detalle: `Último capítulo hace ${item.diffDias} días`
+      });
+    });
+    seriesIncompletas.slice(0, 15).forEach(item => {
+      notifs.push({
+        id: `incomplete-${item.tmdbId}-${item.temporada}`,
+        tipo: 'danger',
+        icono: 'fa-puzzle-piece',
+        titulo: `Serie #${item.tmdbId} · Temp ${item.temporada} incompleta`,
+        detalle: `Faltan capítulo(s): ${item.faltantes.join(', ')}`
+      });
+    });
+
+    let leidas = [];
+    try {
+      const raw = await cargarPreferencia('notif_leidas');
+      leidas = raw ? JSON.parse(raw) : [];
+    } catch (e) { leidas = []; }
+
+    let ignoradas = [];
+    try {
+      const raw = await cargarPreferencia('notif_ignoradas');
+      ignoradas = raw ? JSON.parse(raw) : [];
+    } catch (e) { ignoradas = []; }
+
+    const visibles = notifs.filter(n => !ignoradas.includes(n.id));
+    notificacionesActuales = visibles.map(n => ({ ...n, leida: leidas.includes(n.id) }));
+    renderPanelNotificaciones();
+  }
+
+  function renderPanelNotificaciones() {
+    const badge = document.getElementById('notifBadge');
+    const body = document.getElementById('notifPanelBody');
+    if (!badge || !body) return;
+
+    const noLeidas = notificacionesActuales.filter(n => !n.leida).length;
+    if (noLeidas > 0) {
+      badge.innerText = noLeidas > 99 ? '99+' : noLeidas;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    if (notificacionesActuales.length === 0) {
+      body.innerHTML = '<div class="empty-state">Sin notificaciones nuevas.</div>';
+      return;
+    }
+
+    body.innerHTML = notificacionesActuales.map(n => `
+      <div class="notif-entry ${n.leida ? '' : 'unread'}">
+        <div class="notif-entry-icon ${n.tipo === 'danger' ? 'danger' : ''}"><i class="fa-solid ${n.icono}"></i></div>
+        <div class="notif-entry-text">
+          <strong>${n.titulo}</strong>
+          <span>${n.detalle}</span>
+        </div>
+        <button type="button" class="notif-dismiss-btn" onclick="ignorarNotificacion('${n.id}', event)" title="Ignorar esta notificación">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>`).join('');
+  }
+
+  function toggleNotifPanel() {
+    document.getElementById('notifPanel').classList.toggle('hidden');
+    document.getElementById('notifOverlay').classList.toggle('visible');
+  }
+
+  function cerrarNotifPanel() {
+    document.getElementById('notifPanel').classList.add('hidden');
+    document.getElementById('notifOverlay').classList.remove('visible');
+  }
+
+  async function marcarNotificacionesLeidas() {
+    const ids = notificacionesActuales.map(n => n.id);
+    await guardarPreferencia('notif_leidas', JSON.stringify(ids));
+    notificacionesActuales = notificacionesActuales.map(n => ({ ...n, leida: true }));
+    renderPanelNotificaciones();
+  }
+
+  async function ignorarNotificacion(id, event) {
+    if (event) event.stopPropagation();
+
+    let ignoradas = [];
+    try {
+      const raw = await cargarPreferencia('notif_ignoradas');
+      ignoradas = raw ? JSON.parse(raw) : [];
+    } catch (e) { ignoradas = []; }
+
+    if (!ignoradas.includes(id)) ignoradas.push(id);
+    await guardarPreferencia('notif_ignoradas', JSON.stringify(ignoradas));
+
+    notificacionesActuales = notificacionesActuales.filter(n => n.id !== id);
+    renderPanelNotificaciones();
+    mostrarToast('Notificación ignorada. No volverá a aparecer para este elemento.', 'info');
+  }
+
+  async function restaurarNotificacionesIgnoradas() {
+    const ignoradas = await cargarPreferencia('notif_ignoradas');
+    const cantidad = ignoradas ? (JSON.parse(ignoradas).length || 0) : 0;
+    if (cantidad === 0) {
+      mostrarToast('No tienes notificaciones ignoradas.', 'info');
+      return;
+    }
+    await eliminarPreferencia('notif_ignoradas');
+    mostrarToast(`Se restauraron ${cantidad} notificación(es) ignorada(s).`);
+    await cargarInsightsDashboard();
+  }
+
+  /* ---------------------------------------------------------------------
+   * CALENDARIO DE ESTRENOS
+   * Combina: (1) lo último que agregaste a tu catálogo (Supabase),
+   * y (2) próximas fechas oficiales de TMDB para los títulos que ya tienes.
+   * ------------------------------------------------------------------- */
+  async function cargarCalendarioEstrenos() {
+    const proximosBody = document.getElementById('proximosEstrenosBody');
+    const recienBody = document.getElementById('recienAgregadoBody');
+    if (!proximosBody || !recienBody) return;
+
+    proximosBody.innerHTML = '<div class="empty-state">Cargando calendario…</div>';
+    recienBody.innerHTML = '<tr><td colspan="3" class="empty-state">Cargando…</td></tr>';
+
+    try {
+      // 1) Traer TODAS las filas de tu catálogo (paginado, sin límite de Supabase)
+      const filas = await obtenerTodasLasFilasCatalogo();
+
+      // ---- Sección "Recién agregado" (últimos 10 títulos únicos, por fecha) ----
+      const porFecha = [...filas].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const seen = new Set();
+      const recientes = [];
+      for (const f of porFecha) {
+        const key = `${f.tmdb_id}-${f.tipo}`;
+        if (!seen.has(key)) { seen.add(key); recientes.push(f); }
+        if (recientes.length >= 10) break;
+      }
+      if (recientes.length === 0) {
+        recienBody.innerHTML = '<tr><td colspan="3" class="empty-state">Todavía no hay contenido cargado.</td></tr>';
+      } else {
+        recienBody.innerHTML = recientes.map(item => {
+          const fecha = item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+          const badge = item.tipo === 'movie' ? '<span class="badge movie">🎬 Película</span>' : '<span class="badge tv">🍿 Serie</span>';
+          return `<tr>
+            <td><strong>TMDB #${item.tmdb_id}</strong></td>
+            <td>${badge}</td>
+            <td>${fecha}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      // ---- Sección "Próximos estrenos" — recorre TODO el catálogo, no solo lo reciente ----
+      const moviesUnicas = [...new Set(filas.filter(f => f.tipo === 'movie').map(f => f.tmdb_id))];
+      const seriesUnicas = [...new Set(filas.filter(f => f.tipo === 'tv').map(f => f.tmdb_id))];
+
+      if (moviesUnicas.length === 0 && seriesUnicas.length === 0) {
+        proximosBody.innerHTML = '<div class="empty-state">Agrega películas o series a tu catálogo para ver sus próximos estrenos aquí.</div>';
+        return;
+      }
+
+      proximosBody.innerHTML = `<div class="empty-state">Consultando TMDB para ${moviesUnicas.length + seriesUnicas.length} título(s) de tu catálogo…</div>`;
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      // Se consulta en lotes para no saturar TMDB si el catálogo es grande
+      const datosMovies = await consultarEnLotes(moviesUnicas, consultarEstrenoMovie);
+      const datosSeries = await consultarEnLotes(seriesUnicas, consultarEstrenoSerie);
+
+      const proximos = [...datosMovies, ...datosSeries]
+        .filter(item => item && item.fecha)
+        .filter(item => new Date(item.fecha) >= hoy)
+        .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+      if (proximos.length === 0) {
+        proximosBody.innerHTML = '<div class="empty-state">No hay estrenos próximos pendientes para tu catálogo actual.</div>';
+        return;
+      }
+
+      proximosBody.innerHTML = `<div class="premiere-list">${proximos.map(item => renderPremiereItem(item, hoy)).join('')}</div>`;
+
+    } catch (err) {
+      proximosBody.innerHTML = '<div class="empty-state">Error al cargar el calendario de estrenos.</div>';
+      recienBody.innerHTML = '<tr><td colspan="3" class="empty-state">Error al conectar con Supabase.</td></tr>';
+      mostrarToast('No se pudo cargar el calendario de estrenos.', 'error');
+    }
+  }
+
+  // Trae todas las filas de la tabla enlaces, paginando de 1000 en 1000
+  // (límite por defecto de PostgREST/Supabase), hasta agotar el catálogo completo.
+  async function obtenerTodasLasFilasCatalogo() {
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let todas = [];
+    while (true) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=tmdb_id,tipo,created_at&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
+        { headers: SUPABASE_HEADERS }
+      );
+      if (!res.ok) throw new Error('No se pudo consultar Supabase');
+      const pagina = await res.json();
+      todas = todas.concat(pagina);
+      if (pagina.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    return todas;
+  }
+
+  // Consulta TMDB en lotes de 10 en paralelo, en vez de todo de golpe,
+  // para no saturar la API si el catálogo tiene muchos títulos.
+  async function consultarEnLotes(ids, fnConsulta, tamanoLote = 10) {
+    const resultados = [];
+    for (let i = 0; i < ids.length; i += tamanoLote) {
+      const lote = ids.slice(i, i + tamanoLote);
+      const respuestasLote = await Promise.all(lote.map(id => fnConsulta(id)));
+      resultados.push(...respuestasLote);
+    }
+    return resultados;
+  }
+
+  async function consultarEstrenoMovie(tmdbId) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.release_date) return null;
+      return {
+        tipo: 'movie',
+        titulo: data.title,
+        poster: data.poster_path ? `https://image.tmdb.org/t/p/w154${data.poster_path}` : '',
+        fecha: data.release_date,
+        detalle: 'Estreno de la película'
+      };
+    } catch (e) { return null; }
+  }
+
+  async function consultarEstrenoSerie(tmdbId) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const next = data.next_episode_to_air;
+      if (!next || !next.air_date) return null;
+      return {
+        tipo: 'tv',
+        titulo: data.name,
+        poster: data.poster_path ? `https://image.tmdb.org/t/p/w154${data.poster_path}` : '',
+        fecha: next.air_date,
+        detalle: `Temp ${next.season_number} · Cap ${next.episode_number}${next.name ? ' — ' + next.name : ''}`
+      };
+    } catch (e) { return null; }
+  }
+
+  function renderPremiereItem(item, hoy) {
+    const fechaObj = new Date(item.fecha + 'T00:00:00');
+    const diffDias = Math.round((fechaObj - hoy) / (1000 * 60 * 60 * 24));
+    const esPronto = diffDias <= 7;
+
+    const dia = fechaObj.toLocaleDateString('es-ES', { day: '2-digit' });
+    const mes = fechaObj.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+
+    let countdownTexto;
+    if (diffDias === 0) countdownTexto = 'Hoy';
+    else if (diffDias === 1) countdownTexto = 'Mañana';
+    else countdownTexto = `En ${diffDias} días`;
+
+    const posterImg = item.poster
+      ? `<img class="premiere-poster" src="${item.poster}" onerror="this.style.display='none'">`
+      : `<div class="premiere-poster"></div>`;
+    const badge = item.tipo === 'movie' ? '<span class="badge movie">🎬 Película</span>' : '<span class="badge tv">🍿 Serie</span>';
+
+    return `<div class="premiere-item">
+      ${posterImg}
+      <div class="premiere-info">
+        <strong>${item.titulo}</strong>
+        <span>${badge} ${item.detalle}</span>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+        <div class="premiere-date-badge ${esPronto ? 'soon' : ''}">
+          <span class="day">${dia}</span>
+          <span class="month">${mes}</span>
+        </div>
+        <span class="premiere-countdown ${esPronto ? 'soon' : ''}">${countdownTexto}</span>
+      </div>
+    </div>`;
+  }
+
+  /* ---------------------------------------------------------------------
+   * CALENDARIO: TABS (Mi catálogo / Descubrir)
+   * ------------------------------------------------------------------- */
+  function cambiarTabCalendario(tabId, el) {
+    document.querySelectorAll('#view-calendar .settings-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#view-calendar .settings-tab-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+
+    if (tabId === 'tab-cal-descubrir' && !discoverModoActual) {
+      cambiarModoDescubrir('tv');
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * DESCUBRIR EN TMDB: series en emisión / próximos estrenos
+   * Independiente de tu catálogo — usa /tv/on_the_air y /movie/upcoming.
+   * Marca con ✅ lo que ya tienes agregado en Supabase.
+   * ------------------------------------------------------------------- */
+  let discoverModoActual = null;
+  let discoverPaginaActual = 1;
+  let discoverIdsEnCatalogo = new Set();
+
+  async function obtenerIdsEnCatalogo(tipo) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?tipo=eq.${tipo}&select=tmdb_id`, { headers: SUPABASE_HEADERS });
+      if (!res.ok) return new Set();
+      const data = await res.json();
+      return new Set(data.map(r => String(r.tmdb_id)));
+    } catch (e) { return new Set(); }
+  }
+
+  async function cambiarModoDescubrir(tipo) {
+    discoverModoActual = tipo;
+    discoverPaginaActual = 1;
+
+    document.getElementById('btnDiscoverTv').classList.toggle('btn-primary', tipo === 'tv');
+    document.getElementById('btnDiscoverTv').classList.toggle('btn-secondary', tipo !== 'tv');
+    document.getElementById('btnDiscoverMovie').classList.toggle('btn-primary', tipo === 'movie');
+    document.getElementById('btnDiscoverMovie').classList.toggle('btn-secondary', tipo !== 'movie');
+
+    const body = document.getElementById('discoverBody');
+    body.innerHTML = '<div class="empty-state">Cargando…</div>';
+    document.getElementById('discoverLoadMoreWrap').classList.add('hidden');
+
+    discoverIdsEnCatalogo = await obtenerIdsEnCatalogo(tipo);
+    await cargarPaginaDescubrir(tipo, 1, true);
+  }
+
+  async function cargarMasDescubrir() {
+    discoverPaginaActual++;
+    await cargarPaginaDescubrir(discoverModoActual, discoverPaginaActual, false);
+  }
+
+  async function cargarPaginaDescubrir(tipo, pagina, reemplazar) {
+    const endpoint = tipo === 'tv' ? 'tv/on_the_air' : 'movie/upcoming';
+    const body = document.getElementById('discoverBody');
+    const loadMoreWrap = document.getElementById('discoverLoadMoreWrap');
+
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/${endpoint}?api_key=${TMDB_API_KEY}&language=es-MX&page=${pagina}`);
+      if (!res.ok) throw new Error('TMDB request failed');
+      const data = await res.json();
+      const resultados = data.results || [];
+
+      if (resultados.length === 0 && reemplazar) {
+        body.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
+        return;
+      }
+
+      const tarjetas = resultados.map(item => renderDiscoverCard(item, tipo)).join('');
+
+      if (reemplazar) {
+        body.innerHTML = `<div class="discover-grid">${tarjetas}</div>`;
+      } else {
+        const grid = body.querySelector('.discover-grid');
+        if (grid) grid.insertAdjacentHTML('beforeend', tarjetas);
+      }
+
+      const hayMasPaginas = data.page < data.total_pages && data.page < 20;
+      loadMoreWrap.classList.toggle('hidden', !hayMasPaginas);
+    } catch (err) {
+      if (reemplazar) body.innerHTML = '<div class="empty-state">Error al consultar TMDB.</div>';
+      mostrarToast('No se pudo cargar el contenido de TMDB.', 'error');
+    }
+  }
+
+  function renderDiscoverCard(item, tipo) {
+    const id = String(item.id);
+    const titulo = tipo === 'tv' ? item.name : item.title;
+    const fecha = tipo === 'tv' ? item.first_air_date : item.release_date;
+    const anio = fecha ? fecha.split('-')[0] : '----';
+    const poster = item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : '';
+    const yaEnCatalogo = discoverIdsEnCatalogo.has(id);
+
+    const posterHtml = poster
+      ? `<img src="${poster}" alt="${titulo}" onerror="this.parentElement.innerHTML='';">`
+      : '';
+    const ownedBadge = yaEnCatalogo ? `<span class="discover-owned-badge"><i class="fa-solid fa-check"></i> Tuya</span>` : '';
+
+    const tituloEscapado = (titulo || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const addBtn = yaEnCatalogo
+      ? `<div class="discover-add-btn owned"><i class="fa-solid fa-check"></i> En catálogo</div>`
+      : `<button type="button" class="discover-add-btn" onclick="irAAgregarDesdeDescubrir(${id}, '${tituloEscapado}', '${poster}', '${anio}', '${tipo}')">
+           <i class="fa-solid fa-plus"></i> Agregar
+         </button>`;
+
+    return `<div class="discover-card">
+      <div class="discover-poster-wrap">${posterHtml}${ownedBadge}</div>
+      <div class="discover-info">
+        <strong>${titulo || 'Sin título'}</strong>
+        <span>${anio}</span>
+        ${addBtn}
+      </div>
+    </div>`;
+  }
+
+  function irAAgregarDesdeDescubrir(id, titulo, poster, anio, tipo) {
+    if (tipo === 'tv') {
+      cambiarVista('view-series', document.querySelector('.nav-item[data-view="view-series"]'));
+      seleccionarContenido(id, titulo, poster, anio, 'tv');
+    } else {
+      cambiarVista('view-movie', document.querySelector('.nav-item[data-view="view-movie"]'));
+      seleccionarContenido(id, titulo, poster, anio, 'movie');
+    }
+    mostrarToast(`"${titulo}" precargado en el formulario. Completa los datos para guardarlo.`, 'info');
+  }
+
+  /* ---------------------------------------------------------------------
+   * MÓDULO 2: BUSCADOR INTELIGENTE TMDB (con debounce)
+   * ------------------------------------------------------------------- */
+  let debounceTimerMovie = null;
+  let debounceTimerTv = null;
+
+  function attachTmdbSearch(inputId, resultsId, tipo) {
+    const input = document.getElementById(inputId);
+    input.addEventListener('input', () => {
+      clearTimeout(tipo === 'movie' ? debounceTimerMovie : debounceTimerTv);
+      const query = input.value.trim();
+      const resultsDiv = document.getElementById(resultsId);
+      if (!query) { resultsDiv.classList.add('hidden'); resultsDiv.innerHTML = ''; return; }
+      resultsDiv.classList.remove('hidden');
+      resultsDiv.innerHTML = '<div class="search-loading">Buscando…</div>';
+      const timer = setTimeout(() => buscarTMDB(query, resultsId, tipo), 400);
+      if (tipo === 'movie') debounceTimerMovie = timer; else debounceTimerTv = timer;
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !document.getElementById(resultsId).contains(e.target)) {
+        document.getElementById(resultsId).classList.add('hidden');
+      }
+    });
+  }
+
+  async function buscarTMDB(query, resultsId, tipo) {
+    const resultsDiv = document.getElementById(resultsId);
+    try {
+      const url = `https://api.themoviedb.org/3/search/${tipo}?api_key=${TMDB_API_KEY}&language=es-MX&query=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('TMDB request failed');
+      const data = await res.json();
+      if (!data.results || data.results.length === 0) {
+        resultsDiv.innerHTML = '<div class="search-loading">Sin resultados.</div>';
+        return;
+      }
+      resultsDiv.innerHTML = data.results.slice(0, 8).map(item => {
+        const titulo = (item.title || item.name || '').replace(/"/g, '&quot;');
+        const fecha = item.release_date || item.first_air_date || '';
+        const anio = fecha.split('-')[0] || '----';
+        const poster = item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : '';
+        const posterImg = poster ? `<img class="result-poster" src="${poster}">` : `<div class="result-poster"></div>`;
+        return `<div class="result-item" onclick='seleccionarContenido(${item.id}, "${titulo.replace(/'/g, "\\'")}", "${poster}", "${anio}", "${tipo}")'>
+          ${posterImg}
+          <div class="result-details"><h4>${titulo}</h4><p>${tipo === 'movie' ? '🎬 Película' : '🍿 Serie'} • ${anio}</p></div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      resultsDiv.innerHTML = '<div class="search-loading">Error al conectar con TMDB.</div>';
+    }
+  }
+
+  function seleccionarContenido(id, titulo, poster, anio, tipo) {
+    if (tipo === 'movie') {
+      document.getElementById('listaResultadosMovie').classList.add('hidden');
+      document.getElementById('tmdb_id_peli').value = id;
+      document.getElementById('previewPosterMovie').src = poster;
+      document.getElementById('previewTituloMovie').innerText = titulo;
+      document.getElementById('previewMetaMovie').innerText = `🎬 Película • ${anio}`;
+      document.getElementById('previewContenidoMovie').classList.remove('hidden');
+    } else {
+      document.getElementById('listaResultadosTv').classList.add('hidden');
+      document.getElementById('tmdb_id_serie').value = id;
+      document.getElementById('previewPosterTv').src = poster;
+      document.getElementById('previewTituloTv').innerText = titulo;
+      document.getElementById('previewMetaTv').innerText = `🍿 Serie • ${anio}`;
+      document.getElementById('previewContenidoTv').classList.remove('hidden');
+    }
+  }
+
+  function limpiarPreview(tipo) {
+    if (tipo === 'movie') {
+      document.getElementById('previewContenidoMovie').classList.add('hidden');
+      document.getElementById('search_query_movie').value = '';
+    } else {
+      document.getElementById('previewContenidoTv').classList.add('hidden');
+      document.getElementById('search_query_tv').value = '';
+    }
+  }
+
+  attachTmdbSearch('search_query_movie', 'listaResultadosMovie', 'movie');
+  attachTmdbSearch('search_query_tv', 'listaResultadosTv', 'tv');
+
+  /* ---------------------------------------------------------------------
+   * MÓDULO 3: FORMULARIO DE PELÍCULAS
+   * ------------------------------------------------------------------- */
+  async function procesarEnvioPeli(event) {
+    event.preventDefault();
+    const btn = event.target.querySelector('button[type=submit]');
+    const originalHtml = btn.innerHTML;
+    const idCarga = document.getElementById('tmdb_id_peli').value.trim();
+    const lineas = document.getElementById('lista_enlaces_peli').value.split('\n').map(l => l.trim()).filter(l => l !== "");
+    const idioma = document.getElementById('p_idioma').value;
+    const servidor = document.getElementById('p_servidor').value.trim() || 'Auto';
+
+    if (!idCarga) { mostrarToast('Ingresa un ID de TMDB válido.', 'error'); return; }
+    if (lineas.length === 0) { mostrarToast('Agrega al menos una URL de servidor.', 'error'); return; }
+
+    const filas = lineas.map(url => ({
+      tmdb_id: Number(idCarga), tipo: 'movie', url_embed: url,
+      temporada: 0, episodio: 0,
+      servidor: servidor, idioma: idioma
+    }));
+
+    btn.disabled = true; btn.innerHTML = '⏳ Guardando...';
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
+        method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
+      });
+
+      if (res.ok) {
+        mostrarToast(`Película guardada con ${filas.length} servidor(es).`);
+        document.getElementById('peliForm').reset();
+        limpiarPreview('movie');
+        cargarEstadisticas();
+      } else {
+        const errText = await res.text();
+        let detalle = errText;
+        try { detalle = JSON.parse(errText).message || errText; } catch (e) {}
+        mostrarToast(`Error de Supabase (${res.status}): ${detalle}`, 'error');
+        console.error(errText);
+      }
+    } catch (err) {
+      mostrarToast('Error de red al guardar la película.', 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = originalHtml;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * MÓDULO 4: FORMULARIO DE SERIES + CONTADOR EN TIEMPO REAL
+   * ------------------------------------------------------------------- */
+  function actualizarContadorCapitulos() {
+    const textarea = document.getElementById('lista_enlaces_serie');
+    const capInicioInput = document.getElementById('s_capitulo');
+    const lineas = textarea.value.split('\n').map(l => l.trim()).filter(l => l !== "");
+    const cantLineas = lineas.length;
+    const capInicio = parseInt(capInicioInput.value) || 1;
+    const porCapitulo = parseInt(document.getElementById('s_enlaces_por_capitulo').value) || 1;
+    const cantCapitulos = Math.ceil(cantLineas / porCapitulo);
+    const lineasSobrantes = cantLineas % porCapitulo;
+
+    document.getElementById('hint_enlaces_serie').innerText = porCapitulo === 1
+      ? '1 enlace por línea = 1 capítulo consecutivo, comenzando en el capítulo inicial indicado.'
+      : `Cada ${porCapitulo} líneas seguidas = 1 capítulo (sus ${porCapitulo} servidores), comenzando en el capítulo inicial indicado.`;
+
+    if (cantLineas === 0) {
+      document.getElementById('txt-cant-caps').innerText = 'Episodios en la lista: 0';
+      document.getElementById('txt-rango-caps').innerText = 'Rango estimado: —';
+      return;
+    }
+
+    document.getElementById('txt-cant-caps').innerText = porCapitulo === 1
+      ? `Episodios en la lista: ${cantLineas}`
+      : `Episodios en la lista: ${cantCapitulos} (${cantLineas} enlaces)`;
+
+    const capFinal = capInicio + cantCapitulos - 1;
+    let textoRango = `Rango estimado: Cap ${capInicio} al ${capFinal}`;
+    if (lineasSobrantes !== 0) {
+      textoRango += ` ⚠️ el último capítulo tiene solo ${lineasSobrantes} enlace(s)`;
+    }
+    document.getElementById('txt-rango-caps').innerText = textoRango;
+  }
+
+  async function procesarEnvioSerie(event) {
+    event.preventDefault();
+    const btn = event.target.querySelector('button[type=submit]');
+    const originalHtml = btn.innerHTML;
+    const idCarga = document.getElementById('tmdb_id_serie').value.trim();
+    const lineas = document.getElementById('lista_enlaces_serie').value.split('\n').map(l => l.trim()).filter(l => l !== "");
+    const temporada = parseInt(document.getElementById('s_temporada').value) || 1;
+    let capituloActual = parseInt(document.getElementById('s_capitulo').value) || 1;
+    const idioma = document.getElementById('s_idioma').value;
+    const porCapitulo = parseInt(document.getElementById('s_enlaces_por_capitulo').value) || 1;
+
+    if (!idCarga) { mostrarToast('Ingresa un ID de TMDB válido.', 'error'); return; }
+    if (lineas.length === 0) { mostrarToast('Agrega al menos un enlace de episodio.', 'error'); return; }
+
+    const filas = lineas.map((url, index) => {
+      const fila = {
+        tmdb_id: Number(idCarga), tipo: 'tv', url_embed: url,
+        temporada: temporada, episodio: capituloActual,
+        servidor: 'Auto', idioma: idioma
+      };
+      // Cada "porCapitulo" líneas consecutivas pertenecen al mismo capítulo
+      if ((index + 1) % porCapitulo === 0) capituloActual++;
+      return fila;
+    });
+
+    btn.disabled = true; btn.innerHTML = '⏳ Guardando...';
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
+        method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
+      });
+
+      if (res.ok) {
+        const capInicioMsg = filas[0].episodio;
+        const capFinalMsg = filas[filas.length - 1].episodio;
+        mostrarToast(`Serie guardada: ${filas.length} enlace(s) guardados (Cap ${capInicioMsg} al ${capFinalMsg}).`);
+        document.getElementById('serieForm').reset();
+        document.getElementById('s_temporada').value = 1;
+        document.getElementById('s_capitulo').value = 1;
+        aplicarValorPorDefectoEnlacesPorCapitulo();
+        limpiarPreview('tv');
+        actualizarContadorCapitulos();
+        cargarEstadisticas();
+      } else {
+        const errText = await res.text();
+        let detalle = errText;
+        try { detalle = JSON.parse(errText).message || errText; } catch (e) {}
+        mostrarToast(`Error de Supabase (${res.status}): ${detalle}`, 'error');
+        console.error(errText);
+      }
+    } catch (err) {
+      mostrarToast('Error de red al guardar la serie.', 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = originalHtml;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * GESTIÓN DE ENLACES (EDITOR)
+   * ------------------------------------------------------------------- */
+  async function cargarEnlacesEditor() {
+    const idBuscar = document.getElementById('edit_search').value.trim();
+    const tipo = document.getElementById('edit_tipo').value;
+    const contenedor = document.getElementById('contenedorTablaEditor');
+    const cuerpo = document.getElementById('cuerpoTablaEditor');
+    if (!idBuscar) { mostrarToast('Ingresa un ID de TMDB para buscar.', 'error'); return; }
+
+    contenedor.classList.remove('hidden');
+    cuerpo.innerHTML = '<tr><td colspan="3" class="empty-state">Buscando…</td></tr>';
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?tmdb_id=eq.${encodeURIComponent(idBuscar)}&tipo=eq.${tipo}&select=*`, { headers: SUPABASE_HEADERS });
+      if (!res.ok) throw new Error('Supabase query failed');
+      const data = await res.json();
+      if (data.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="3" class="empty-state">No hay registros para este ID.</td></tr>';
+        return;
+      }
+      data.sort((a, b) => (a.temporada || 0) - (b.temporada || 0) || (a.episodio || 0) - (b.episodio || 0));
+      cuerpo.innerHTML = data.map(item => {
+        const detalle = item.tipo === 'movie'
+          ? `🎬 Película — ${item.servidor || 'Auto'}`
+          : `🍿 Temp ${item.temporada} · Cap ${item.episodio} — ${item.servidor || 'Auto'}`;
+        return `<tr id="fila-${item.id}">
+          <td><strong style="font-size:12px;">${detalle}</strong><br>
+            <input type="text" value="${(item.url_embed || '').replace(/"/g, '&quot;')}" onchange="actualizarCampoBD(${item.id}, 'url_embed', this.value)" style="font-size:11.5px; margin-top:6px;"></td>
+          <td style="width:120px;"><input type="text" value="${item.idioma || ''}" onchange="actualizarCampoBD(${item.id}, 'idioma', this.value)"></td>
+          <td style="width:80px;"><button type="button" class="btn btn-danger" onclick="eliminarEnlaceBD(${item.id})">❌ Eliminar</button></td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      cuerpo.innerHTML = '<tr><td colspan="3" class="empty-state">Error de red al buscar registros.</td></tr>';
+      mostrarToast('No se pudo consultar Supabase.', 'error');
+    }
+  }
+
+  async function actualizarCampoBD(id, campo, valor) {
+    try {
+      const upd = {}; upd[campo] = valor;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?id=eq.${id}`, {
+        method: 'PATCH', headers: SUPABASE_HEADERS, body: JSON.stringify(upd)
+      });
+      if (res.ok) mostrarToast('Registro actualizado.', 'info');
+      else mostrarToast('No se pudo actualizar el registro.', 'error');
+    } catch (err) {
+      mostrarToast('Error de red al actualizar.', 'error');
+    }
+  }
+
+  async function eliminarEnlaceBD(id) {
+    if (!confirm('¿Eliminar este servidor permanentemente?')) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?id=eq.${id}`, {
+        method: 'DELETE', headers: SUPABASE_HEADERS
+      });
+      if (res.ok) {
+        document.getElementById(`fila-${id}`).remove();
+        mostrarToast('Enlace eliminado.');
+        cargarEstadisticas();
+      } else {
+        mostrarToast('No se pudo eliminar el enlace.', 'error');
+      }
+    } catch (err) {
+      mostrarToast('Error de red al eliminar.', 'error');
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * MÓDULO 5: PINTAR CONFIGURACIÓN
+   * ------------------------------------------------------------------- */
+  function pintarConfig() {
+    aplicarValorPorDefectoEnlacesPorCapitulo();
+  }
+
+  /* ---------------------------------------------------------------------
+   * REGLAS DE ORDEN DE SERVIDORES (Series)
+   * ------------------------------------------------------------------- */
+  async function guardarReglaOrdenServidores(valor) {
+    await guardarPreferencia('pref_enlaces_por_capitulo', valor);
+    mostrarToast(`Regla guardada: ${valor} enlace(s) = 1 capítulo, por defecto.`, 'info');
+    aplicarValorPorDefectoEnlacesPorCapitulo();
+  }
+
+  async function aplicarValorPorDefectoEnlacesPorCapitulo() {
+    const valor = await cargarPreferencia('pref_enlaces_por_capitulo');
+    const val = valor || '1';
+    const selectorConfig = document.getElementById('cfg_enlaces_por_capitulo');
+    const selectorForm = document.getElementById('s_enlaces_por_capitulo');
+    if (selectorConfig) selectorConfig.value = val;
+    if (selectorForm) selectorForm.value = val;
+    actualizarContadorCapitulos();
+  }
+
+  /* ---------------------------------------------------------------------
+   * AJUSTES: TABS INTERNAS
+   * ------------------------------------------------------------------- */
+  function cambiarTabAjustes(tabId, el) {
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  /* ---------------------------------------------------------------------
+   * PERSISTENCIA DE PREFERENCIAS
+   * localStorage es la fuente de verdad: es una API estándar de navegador
+   * y funciona igual en Cloudflare Pages, Vercel, o cualquier hosting.
+   * window.storage (si existe) se usa además solo como sincronización extra
+   * dentro del entorno de Claude.ai — nunca es la única vía de guardado.
+   * ------------------------------------------------------------------- */
+  const LS_PREFIX = 'streamadmin_';
+
+  async function guardarPreferencia(clave, valor) {
+    try { localStorage.setItem(LS_PREFIX + clave, valor); }
+    catch (e) { console.warn('No se pudo guardar en localStorage:', clave, e); }
+    if (window.storage) {
+      try { await window.storage.set(clave, valor, false); } catch (e) { /* opcional */ }
+    }
+  }
+
+  async function cargarPreferencia(clave) {
+    try {
+      const local = localStorage.getItem(LS_PREFIX + clave);
+      if (local !== null) return local;
+    } catch (e) { /* localStorage no disponible (modo incógnito estricto, etc.) */ }
+
+    if (window.storage) {
+      try {
+        const res = await window.storage.get(clave, false);
+        return res ? res.value : null;
+      } catch (e) { return null; }
+    }
+    return null;
+  }
+
+  async function eliminarPreferencia(clave) {
+    try { localStorage.removeItem(LS_PREFIX + clave); }
+    catch (e) { /* ignorar */ }
+    if (window.storage) {
+      try { await window.storage.delete(clave, false); } catch (e) { /* opcional */ }
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * AJUSTES: PERSONALIZACIÓN — TEMAS
+   * ------------------------------------------------------------------- */
+
+  function aplicarTema(tema, el) {
+    document.body.classList.remove('theme-glass', 'theme-material', 'theme-lite');
+    if (tema !== 'dark') document.body.classList.add(`theme-${tema}`);
+    document.querySelectorAll('.theme-option').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    guardarPreferencia('pref_theme', tema);
+    if (tema === 'lite') {
+      document.getElementById('ultraLiteToggle').checked = true;
+      toggleUltraLite(true, false);
+    }
+  }
+
+  function aplicarAcento(hex, el) {
+    document.documentElement.style.setProperty('--red', hex);
+    document.documentElement.style.setProperty('--red-hover', hex);
+    document.documentElement.style.setProperty('--red-dim', hexAlpha(hex, 0.12));
+    document.documentElement.style.setProperty('--red-shadow', hexAlpha(hex, 0.25));
+    document.documentElement.style.setProperty('--red-focus', hexAlpha(hex, 0.03));
+    document.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
+    if (el) el.classList.add('active');
+    guardarPreferencia('pref_accent', hex);
+  }
+
+  function hexAlpha(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function aplicarFuente(nombre, el, guardar = true) {
+    document.documentElement.style.setProperty('--font-body-name', `'${nombre}'`);
+    document.documentElement.style.setProperty('--font-body', `'${nombre}', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`);
+    document.querySelectorAll('.font-option').forEach(f => f.classList.remove('active'));
+    if (el) el.classList.add('active');
+    else {
+      const match = document.querySelector(`.font-option[data-font="${nombre}"]`);
+      if (match) match.classList.add('active');
+    }
+    if (guardar) guardarPreferencia('pref_font', nombre);
+  }
+
+  function toggleUltraLite(activo, guardar = true) {
+    document.body.classList.toggle('ultra-lite', activo);
+    if (guardar) guardarPreferencia('pref_ultralite', activo ? '1' : '0');
+  }
+
+  function toggleAnimaciones(activo, guardar = true) {
+    document.body.classList.toggle('no-animations', !activo);
+    if (guardar) guardarPreferencia('pref_animations', activo ? '1' : '0');
+  }
+
+  /* ---------------------------------------------------------------------
+   * AJUSTES: PERFIL (guardado en Supabase Auth — user_metadata)
+   * ------------------------------------------------------------------- */
+  async function guardarPerfil(event) {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    const nombre = document.getElementById('cfg_profile_name').value.trim() || 'Administrador';
+    const avatarUrl = document.getElementById('cfg_profile_avatar').value.trim();
+
+    if (!currentSession?.access_token) {
+      mostrarToast('No hay una sesión activa. Vuelve a iniciar sesión.', 'error');
+      return;
+    }
+
+    btn.disabled = true; btn.innerHTML = '⏳ Guardando...';
+    try {
+      const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: { ...AUTH_HEADERS_BASE, Authorization: `Bearer ${currentSession.access_token}` },
+        body: JSON.stringify({
+          data: { nickname: nombre, avatar_url: avatarUrl }
+        })
+      });
+
+      if (res.ok) {
+        const userData = await res.json();
+        currentUser = userData;
+        aplicarPerfilVisual(nombre, avatarUrl, userData.email || currentSession.email);
+        mostrarToast('Perfil actualizado. Se verá igual en cualquier dispositivo donde inicies sesión.');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        mostrarToast(`No se pudo actualizar el perfil: ${errData.msg || errData.error_description || res.status}`, 'error');
+      }
+    } catch (err) {
+      mostrarToast('Error de red al guardar el perfil.', 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = originalHtml;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+   * GESTIÓN DE ROLES (solo Admin) — genera el SQL para asignar un rol,
+   * ya que modificar el user_metadata de OTRO usuario requiere permisos
+   * de service_role que este panel frontend no incluye por seguridad.
+   * ------------------------------------------------------------------- */
+  function generarSqlAsignarRol() {
+    const email = document.getElementById('role_target_email').value.trim();
+    const rol = document.getElementById('role_target_value').value;
+
+    if (!email) {
+      mostrarToast('Escribe el correo del usuario.', 'error');
+      return;
+    }
+
+    const emailEscapado = email.replace(/'/g, "''");
+    const sql = `update auth.users
+set raw_user_meta_data = raw_user_meta_data || '{"role": "${rol}"}'::jsonb
+where email = '${emailEscapado}';`;
+
+    document.getElementById('roleSqlOutput').value = sql;
+    document.getElementById('roleSqlOutputWrap').classList.remove('hidden');
+    mostrarToast('Comando SQL generado. Cópialo y ejecútalo en Supabase → SQL Editor.', 'info');
+  }
+
+  /* ---------------------------------------------------------------------
+   * MARCA DEL PANEL — logo y nombre fijos desde config.js
+   * ------------------------------------------------------------------- */
+  function previsualizarLogo(url) {
+    const targets = [document.getElementById('brandMark'), document.getElementById('loginBrandMark')];
+    targets.forEach(el => {
+      if (!el) return;
+      if (url && url.trim() !== '') {
+        el.innerHTML = `<img src="${url.trim()}" alt="Logo" onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid fa-play&quot;></i>';">`;
+      } else {
+        el.innerHTML = `<i class="fa-solid fa-play"></i>`;
+      }
+    });
+  }
+
+  function aplicarMarca(nombre, logoUrl) {
+    const nombreFinal = nombre && nombre.trim() !== '' ? nombre.trim() : DEFAULT_BRAND_NAME;
+    document.getElementById('loginBrandName').innerText = nombreFinal.toUpperCase();
+    previsualizarLogo(logoUrl || '');
+    const meta = VIEW_META[document.querySelector('.view.active')?.id] || VIEW_META['view-dashboard'];
+    document.title = `${meta.title} — ${nombreFinal}`;
+  }
+
+  /* ---------------------------------------------------------------------
+   * AJUSTES: CARGAR PREFERENCIAS GUARDADAS
+   * ------------------------------------------------------------------- */
+  async function cargarPreferenciasGuardadas() {
+    const tema = await cargarPreferencia('pref_theme');
+    if (tema && tema !== 'dark') {
+      const el = document.querySelector(`.theme-option[data-theme="${tema}"]`);
+      aplicarTema(tema, el);
+    }
+    const accent = await cargarPreferencia('pref_accent');
+    if (accent) {
+      const el = document.querySelector(`.accent-swatch[data-accent="${accent}"]`);
+      aplicarAcento(accent, el);
+    }
+    const fuente = await cargarPreferencia('pref_font');
+    if (fuente && fuente !== 'Poppins') {
+      const el = document.querySelector(`.font-option[data-font="${fuente}"]`);
+      aplicarFuente(fuente, el, false);
+    }
+    const ultralite = await cargarPreferencia('pref_ultralite');
+    if (ultralite === '1') {
+      document.getElementById('ultraLiteToggle').checked = true;
+      toggleUltraLite(true, false);
+    }
+    const animaciones = await cargarPreferencia('pref_animations');
+    if (animaciones === '0') {
+      document.getElementById('animationsToggle').checked = false;
+      toggleAnimaciones(false, false);
+    }
+
+    aplicarMarca(DEFAULT_BRAND_NAME, DEFAULT_BRAND_LOGO_URL);
+  }
+
+  /* ---------------------------------------------------------------------
+   * INIT
+   * ------------------------------------------------------------------- */
+  (async () => {
+    const sesionActiva = await verificarSesionGuardada();
+    verificarConexionSupabase();
+    cargarPreferenciasGuardadas();
+    aplicarValorPorDefectoEnlacesPorCapitulo();
+    if (sesionActiva) {
+      cargarEstadisticas();
+    }
+  })();
+
+  // Renueva el access_token en segundo plano cada 45 min, antes de que expire
+  // (Supabase suele expirarlo a la hora). Así una sesión abierta no se corta
+  // a medio uso ni pide contraseña de nuevo mientras el refresh_token siga vigente.
+  setInterval(() => {
+    if (currentSession?.refresh_token) {
+      renovarSesionConRefreshToken(currentSession.refresh_token);
+    }
+  }, 45 * 60 * 1000);
+</script>
+</body>
+</html>
