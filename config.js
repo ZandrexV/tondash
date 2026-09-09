@@ -25,8 +25,8 @@ window.STREAM_CONFIG = {
   TABLA_ENLACES: "enlaces",
 
   // ---- Supabase: proyecto separado, usado solo para autenticación (login/logout) ----
-  AUTH_SUPABASE_URL: "https://mguihrwdiuhdslozyptm.supabase.co",
-  AUTH_SUPABASE_KEY: "sb_publishable_UTu12RRS0F_zIyIlK3k8rQ_dyLcVMIq",
+  AUTH_SUPABASE_URL: "https://szhmqobdqatunuqbibpa.supabase.co",
+  AUTH_SUPABASE_KEY: "sb_publishable_MroA7EQkDVZRnHNCDN-CmA_x4Q0a0HA",
 
   // ---- Personalización de marca ----
   // Deja BRAND_LOGO_URL vacío ("") para usar el ícono de reproducción por defecto.

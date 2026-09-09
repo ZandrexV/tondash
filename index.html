@@ -1070,11 +1070,6 @@
       <span class="nav-icon"><i class="fa-solid fa-link"></i></span>
       <span class="nav-label">Gestión de Enlaces</span>
     </div>
-    <div class="nav-item" data-view="view-approvals" onclick="cambiarVista('view-approvals', this)">
-      <span class="nav-icon"><i class="fa-solid fa-clipboard-check"></i></span>
-      <span class="nav-label">Aprobaciones</span>
-      <span class="nav-badge hidden" id="approvalsNavBadge">0</span>
-    </div>
     <div class="nav-item" data-view="view-calendar" onclick="cambiarVista('view-calendar', this)">
       <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
       <span class="nav-label">Calendario de estrenos</span>
@@ -1241,10 +1236,6 @@
               Nueva película
             </h2>
             <form id="peliForm" class="form-grid" onsubmit="procesarEnvioPeli(event)">
-              <div class="role-notice" id="roleNoticePelicula" style="display:none;">
-                <i class="fa-solid fa-circle-info"></i>
-                <span>Como Uploader Principiante, tu contenido se enviará a revisión antes de publicarse en el catálogo.</span>
-              </div>
               <div class="field">
                 <label>ID TMDB</label>
                 <input type="text" id="tmdb_id_peli" required placeholder="Ej: 157336">
@@ -1302,10 +1293,6 @@
               Nueva serie / temporada
             </h2>
             <form id="serieForm" class="form-grid" onsubmit="procesarEnvioSerie(event)">
-              <div class="role-notice" id="roleNoticeSerie" style="display:none;">
-                <i class="fa-solid fa-circle-info"></i>
-                <span>Como Uploader Principiante, tu contenido se enviará a revisión antes de publicarse en el catálogo.</span>
-              </div>
               <div class="field">
                 <label>ID TMDB</label>
                 <input type="text" id="tmdb_id_serie" required placeholder="Ej: 71446">
@@ -1402,25 +1389,6 @@
               <thead><tr><th>Detalle almacenado</th><th>Idioma</th><th>Opciones</th></tr></thead>
               <tbody id="cuerpoTablaEditor"></tbody>
             </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===================== VIEW: APROBACIONES ===================== -->
-      <section id="view-approvals" class="view">
-        <div class="glass-card">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
-            <h2 class="section-heading" style="margin-bottom:0;">
-              <i class="fa-solid fa-clipboard-check"></i>
-              Contenido pendiente de aprobación
-            </h2>
-            <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cargarAprobacionesPendientes()">
-              <i class="fa-solid fa-arrows-rotate"></i> Actualizar
-            </button>
-          </div>
-          <p style="font-size:12px; color:var(--text-muted); margin:8px 0 16px 0;">Subidas de Uploaders Principiantes esperando revisión. Apruébalas para publicarlas en tu catálogo, o recházalas para descartarlas.</p>
-          <div id="approvalsBody">
-            <div class="empty-state">Cargando…</div>
           </div>
         </div>
       </section>
@@ -1727,8 +1695,7 @@
                 <label>Nuevo rol</label>
                 <select id="role_target_value">
                   <option value="admin">Administrador</option>
-                  <option value="uploader_calificado">Uploader Calificado</option>
-                  <option value="uploader_principiante" selected>Uploader Principiante</option>
+                  <option value="uploader" selected>Uploader</option>
                 </select>
               </div>
               <div class="config-note">
@@ -1875,7 +1842,7 @@
     const nickname = meta.nickname || email.split('@')[0] || 'Administrador';
     const avatarUrl = meta.avatar_url || '';
 
-    currentRole = meta.role || 'uploader_principiante';
+    currentRole = meta.role || 'uploader';
     aplicarPerfilVisual(nickname, avatarUrl, email);
     aplicarRestriccionesPorRol();
 
@@ -1888,51 +1855,32 @@
 
   /* ---------------------------------------------------------------------
    * ROLES Y PERMISOS
-   * 'admin' y 'uploader_calificado' tienen acceso completo.
-   * 'uploader_principiante' no ve Gestión de Enlaces, y sus subidas de
-   * películas/series se guardan en enlaces_pendientes en vez de enlaces,
-   * a la espera de aprobación (ver módulo APROBACIONES más abajo).
+   * 'admin' tiene acceso completo, incluyendo Gestión de Enlaces y la
+   * gestión de roles de otros usuarios.
+   * 'uploader' puede agregar películas/series igual que un admin (van
+   * directo a la tabla enlaces, sin revisión), pero no ve la sección
+   * Gestión de Enlaces ni puede gestionar roles.
    * ------------------------------------------------------------------- */
-  let currentRole = 'uploader_principiante';
+  let currentRole = 'uploader';
 
   const ROLE_LABELS = {
     admin: 'Administrador',
-    uploader_calificado: 'Uploader Calificado',
-    uploader_principiante: 'Uploader Principiante'
+    uploader: 'Uploader'
   };
-
-  function esRevisor() {
-    return currentRole === 'admin' || currentRole === 'uploader_calificado';
-  }
 
   function esAdmin() {
     return currentRole === 'admin';
   }
 
   function aplicarRestriccionesPorRol() {
-    const puedeGestionarEnlaces = esRevisor();
     const navLinks = document.querySelector('.nav-item[data-view="view-links"]');
-    if (navLinks) navLinks.style.display = puedeGestionarEnlaces ? '' : 'none';
-
-    const navAprobaciones = document.querySelector('.nav-item[data-view="view-approvals"]');
-    if (navAprobaciones) navAprobaciones.style.display = puedeGestionarEnlaces ? '' : 'none';
+    if (navLinks) navLinks.style.display = esAdmin() ? '' : 'none';
 
     const navRoles = document.getElementById('navRolesTab');
     if (navRoles) navRoles.style.display = esAdmin() ? '' : 'none';
 
     const roleBadge = document.getElementById('profileRoleBadge');
     if (roleBadge) roleBadge.innerText = ROLE_LABELS[currentRole] || currentRole;
-
-    // Ajusta el copy de los botones de guardar en los formularios según el rol
-    const infoPelicula = document.getElementById('roleNoticePelicula');
-    const infoSerie = document.getElementById('roleNoticeSerie');
-    const notice = puedeGestionarEnlaces
-      ? null
-      : 'Como Uploader Principiante, tu contenido se enviará a revisión antes de publicarse en el catálogo.';
-    if (infoPelicula) infoPelicula.style.display = notice ? '' : 'none';
-    if (infoSerie) infoSerie.style.display = notice ? '' : 'none';
-
-    if (puedeGestionarEnlaces) actualizarBadgeAprobacionesPendientes();
   }
 
   function aplicarPerfilVisual(nickname, avatarUrl, email) {
@@ -2058,7 +2006,6 @@
     'view-movie': { title: 'Agregar Película' },
     'view-series': { title: 'Agregar Serie' },
     'view-links': { title: 'Gestión de Enlaces' },
-    'view-approvals': { title: 'Aprobaciones' },
     'view-calendar': { title: 'Calendario de estrenos' },
     'view-config': { title: 'Configuración de API' },
     'view-settings': { title: 'Ajustes' },
@@ -2079,7 +2026,6 @@
     }
     if (viewId === 'view-config') pintarConfig();
     if (viewId === 'view-calendar') cargarCalendarioEstrenos();
-    if (viewId === 'view-approvals') cargarAprobacionesPendientes();
 
     if (window.innerWidth <= 980) cerrarSidebar();
   }
@@ -2572,126 +2518,6 @@
   }
 
   /* ---------------------------------------------------------------------
-   * APROBACIONES — flujo de revisión para Uploader Principiante
-   * Requiere la tabla enlaces_pendientes (ver sql/roles_y_aprobacion.sql).
-   * Solo visible/accesible para 'admin' y 'uploader_calificado'.
-   * ------------------------------------------------------------------- */
-  async function cargarAprobacionesPendientes() {
-    const body = document.getElementById('approvalsBody');
-    if (!body || !esRevisor()) return;
-
-    body.innerHTML = '<div class="empty-state">Cargando…</div>';
-
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/enlaces_pendientes?status=eq.pending&select=*&order=created_at.asc`,
-        { headers: SUPABASE_HEADERS }
-      );
-      if (!res.ok) throw new Error('No se pudo consultar enlaces_pendientes. ¿Ya creaste la tabla con el script SQL?');
-      const pendientes = await res.json();
-
-      if (pendientes.length === 0) {
-        body.innerHTML = '<div class="empty-state">No hay contenido pendiente de aprobación. 🎉</div>';
-        return;
-      }
-
-      body.innerHTML = `<div class="approval-list">${pendientes.map(renderApprovalItem).join('')}</div>`;
-    } catch (err) {
-      body.innerHTML = '<div class="empty-state">No se pudo cargar la lista de pendientes. Verifica que la tabla enlaces_pendientes exista en Supabase (ver sql/roles_y_aprobacion.sql).</div>';
-    }
-  }
-
-  function renderApprovalItem(item) {
-    const badge = item.tipo === 'movie' ? '<span class="badge movie">🎬 Película</span>' : '<span class="badge tv">🍿 Serie</span>';
-    const detalleCapitulo = item.tipo === 'tv' ? ` · Temp ${item.temporada} · Cap ${item.episodio}` : '';
-    const fecha = item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
-    return `<div class="approval-item" id="approval-${item.id}">
-      <div class="approval-info">
-        <strong>TMDB #${item.tmdb_id}${detalleCapitulo}</strong>
-        <span>${badge} · ${item.idioma || '—'} · Enviado por ${item.submitted_by_email || 'desconocido'} · ${fecha}</span>
-        <div class="url-line">${item.url_embed}</div>
-      </div>
-      <div class="approval-actions">
-        <button type="button" class="approval-btn approve" onclick="resolverAprobacion(${item.id}, 'approved')">
-          <i class="fa-solid fa-check"></i> Aprobar
-        </button>
-        <button type="button" class="approval-btn reject" onclick="resolverAprobacion(${item.id}, 'rejected')">
-          <i class="fa-solid fa-xmark"></i> Rechazar
-        </button>
-      </div>
-    </div>`;
-  }
-
-  async function resolverAprobacion(id, nuevoStatus) {
-    const fila = document.getElementById(`approval-${id}`);
-    if (fila) fila.style.opacity = '0.5';
-
-    try {
-      // 1) Traer el registro pendiente completo
-      const resGet = await fetch(`${SUPABASE_URL}/rest/v1/enlaces_pendientes?id=eq.${id}&select=*`, { headers: SUPABASE_HEADERS });
-      if (!resGet.ok) throw new Error('No se pudo leer el pendiente.');
-      const data = await resGet.json();
-      const pendiente = data[0];
-      if (!pendiente) throw new Error('Registro no encontrado.');
-
-      if (nuevoStatus === 'approved') {
-        // 2) Insertar en la tabla real de enlaces
-        const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
-          method: 'POST', headers: SUPABASE_HEADERS,
-          body: JSON.stringify([{
-            tmdb_id: pendiente.tmdb_id, tipo: pendiente.tipo, url_embed: pendiente.url_embed,
-            temporada: pendiente.temporada, episodio: pendiente.episodio,
-            servidor: pendiente.servidor, idioma: pendiente.idioma
-          }])
-        });
-        if (!resInsert.ok) throw new Error('No se pudo publicar en el catálogo.');
-      }
-
-      // 3) Actualizar el estado del pendiente (approved o rejected)
-      const resUpdate = await fetch(`${SUPABASE_URL}/rest/v1/enlaces_pendientes?id=eq.${id}`, {
-        method: 'PATCH', headers: SUPABASE_HEADERS,
-        body: JSON.stringify({ status: nuevoStatus, reviewed_by: currentUser?.id, reviewed_at: new Date().toISOString() })
-      });
-      if (!resUpdate.ok) throw new Error('No se pudo actualizar el estado.');
-
-      if (fila) fila.remove();
-      mostrarToast(nuevoStatus === 'approved' ? 'Contenido aprobado y publicado en el catálogo.' : 'Contenido rechazado.');
-      actualizarBadgeAprobacionesPendientes();
-      cargarEstadisticas();
-
-      const bodyVacio = document.querySelector('#approvalsBody .approval-list');
-      if (bodyVacio && bodyVacio.children.length === 0) {
-        document.getElementById('approvalsBody').innerHTML = '<div class="empty-state">No hay contenido pendiente de aprobación. 🎉</div>';
-      }
-    } catch (err) {
-      if (fila) fila.style.opacity = '1';
-      mostrarToast(`No se pudo procesar: ${err.message}`, 'error');
-    }
-  }
-
-  async function actualizarBadgeAprobacionesPendientes() {
-    if (!esRevisor()) return;
-    const badge = document.getElementById('approvalsNavBadge');
-    if (!badge) return;
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/enlaces_pendientes?status=eq.pending&select=id`,
-        { headers: { ...SUPABASE_HEADERS, Prefer: 'count=exact' } }
-      );
-      const countHeader = res.headers.get('content-range');
-      let total = 0;
-      if (countHeader && countHeader.includes('/')) total = parseInt(countHeader.split('/')[1]) || 0;
-      if (total > 0) {
-        badge.innerText = total > 99 ? '99+' : total;
-        badge.classList.remove('hidden');
-      } else {
-        badge.classList.add('hidden');
-      }
-    } catch (e) { badge.classList.add('hidden'); }
-  }
-
-  /* ---------------------------------------------------------------------
    * CALENDARIO DE ESTRENOS
    * Combina: (1) lo último que agregaste a tu catálogo (Supabase),
    * y (2) próximas fechas oficiales de TMDB para los títulos que ya tienes.
@@ -3102,19 +2928,12 @@
 
     btn.disabled = true; btn.innerHTML = '⏳ Guardando...';
     try {
-      let res;
-      if (esRevisor()) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
-          method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
-        });
-      } else {
-        res = await enviarAPendientes(filas);
-      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
+        method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
+      });
 
       if (res.ok) {
-        mostrarToast(esRevisor()
-          ? `Película guardada con ${filas.length} servidor(es).`
-          : `Película enviada a revisión (${filas.length} servidor(es)). Un Admin o Uploader Calificado la aprobará.`);
+        mostrarToast(`Película guardada con ${filas.length} servidor(es).`);
         document.getElementById('peliForm').reset();
         limpiarPreview('movie');
         cargarEstadisticas();
@@ -3130,20 +2949,6 @@
     } finally {
       btn.disabled = false; btn.innerHTML = originalHtml;
     }
-  }
-
-  // Envía filas a la tabla de pendientes (enlaces_pendientes) en vez de publicarlas directo.
-  // Requiere la tabla y policies del script SQL de roles — ver sql/roles_y_aprobacion.sql
-  async function enviarAPendientes(filas) {
-    const filasPendientes = filas.map(f => ({
-      ...f,
-      submitted_by: currentUser?.id,
-      submitted_by_email: currentUser?.email || '',
-      status: 'pending'
-    }));
-    return fetch(`${SUPABASE_URL}/rest/v1/enlaces_pendientes`, {
-      method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filasPendientes)
-    });
   }
 
   /* ---------------------------------------------------------------------
@@ -3208,21 +3013,14 @@
 
     btn.disabled = true; btn.innerHTML = '⏳ Guardando...';
     try {
-      let res;
-      if (esRevisor()) {
-        res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
-          method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
-        });
-      } else {
-        res = await enviarAPendientes(filas);
-      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}`, {
+        method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(filas)
+      });
 
       if (res.ok) {
         const capInicioMsg = filas[0].episodio;
         const capFinalMsg = filas[filas.length - 1].episodio;
-        mostrarToast(esRevisor()
-          ? `Serie guardada: ${filas.length} enlace(s) guardados (Cap ${capInicioMsg} al ${capFinalMsg}).`
-          : `Serie enviada a revisión: ${filas.length} enlace(s) (Cap ${capInicioMsg} al ${capFinalMsg}). Un Admin o Uploader Calificado la aprobará.`);
+        mostrarToast(`Serie guardada: ${filas.length} enlace(s) guardados (Cap ${capInicioMsg} al ${capFinalMsg}).`);
         document.getElementById('serieForm').reset();
         document.getElementById('s_temporada').value = 1;
         document.getElementById('s_capitulo').value = 1;
@@ -3587,13 +3385,6 @@ where email = '${emailEscapado}';`;
       renovarSesionConRefreshToken(currentSession.refresh_token);
     }
   }, 45 * 60 * 1000);
-
-  // Refresca el contador de aprobaciones pendientes cada 5 min (solo revisores)
-  setInterval(() => {
-    if (currentSession && esRevisor()) {
-      actualizarBadgeAprobacionesPendientes();
-    }
-  }, 5 * 60 * 1000);
 </script>
 </body>
 </html>
