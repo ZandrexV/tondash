@@ -1005,6 +1005,12 @@
 
     .content { padding: 18px 16px 50px 16px; }
   }
+
+  /* Clase .hidden propia: no depende de que el CDN de Tailwind cargue a
+     tiempo (o cargue en absoluto). Sin esto, si Tailwind se retrasa o es
+     bloqueado, elementos con class="hidden" seguirían siendo visibles
+     porque esa utilidad todavía no existiría en el navegador. */
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>

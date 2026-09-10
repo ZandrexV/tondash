@@ -103,6 +103,10 @@
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Clase .hidden propia: no depende de que el CDN de Tailwind cargue a
+     tiempo (o cargue en absoluto). */
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
