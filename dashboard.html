@@ -206,6 +206,14 @@
   .sidebar-storage .storage-used { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
 
   .sidebar-divider { height: 1px; background: var(--border); margin: 14px 6px; }
+  .nav-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 4px 12px 8px 12px;
+  }
 
   .sidebar-footer {
     margin-top: auto;
@@ -490,6 +498,100 @@
   @media (max-width: 480px) {
     .discover-grid { grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 10px; }
   }
+
+  /* ===================== REPARTO ===================== */
+  .cast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 14px;
+  }
+  .cast-card { display: flex; flex-direction: column; gap: 6px; text-align: center; }
+  .cast-photo-wrap { width: 100%; aspect-ratio: 2/3; border-radius: var(--radius-sm); overflow: hidden; background: #1a1a24; }
+  .cast-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cast-photo-wrap .cast-fallback-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 22px; }
+  .cast-card strong { font-size: 11.5px; line-height: 1.25; }
+  .cast-card span { font-size: 10.5px; color: var(--text-dim); }
+
+  /* ===================== GÉNEROS ===================== */
+  .genre-chips-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+  .genre-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 15px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    font-size: 12.5px; font-weight: 600;
+    cursor: pointer;
+  }
+  .genre-chip:hover { background: rgba(255,255,255,0.06); }
+  .genre-chip.active { background: var(--red-dim); border-color: rgba(229,9,20,0.3); color: #fff; }
+  .genre-chip .genre-count {
+    font-size: 10.5px; font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-muted);
+  }
+  .genre-chip.active .genre-count { background: var(--red); color: #fff; }
+
+  /* ===================== SALUD ===================== */
+  .health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .health-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .health-icon {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+  }
+  .health-icon.ok { background: rgba(47,214,107,0.12); color: var(--green); }
+  .health-icon.fail { background: var(--red-dim); color: var(--red); }
+  .health-icon.checking { background: rgba(245,166,35,0.12); color: var(--amber); }
+  .health-info { flex: 1; min-width: 0; }
+  .health-info strong { font-size: 13px; display: block; }
+  .health-info span { font-size: 11px; color: var(--text-dim); display: block; margin-top: 2px; }
+  .health-status-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+  .health-status-label.ok { color: var(--green); }
+  .health-status-label.fail { color: var(--red); }
+  .health-status-label.checking { color: var(--amber); }
+
+  /* ===================== ÚLTIMOS TÍTULOS AGREGADOS (con copiar link) ===================== */
+  .recent-titles-list { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+  .recent-title-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.015);
+  }
+  .recent-title-poster { width: 34px; height: 48px; object-fit: cover; border-radius: 5px; background: #1a1a24; flex-shrink: 0; }
+  .recent-title-info { flex: 1; min-width: 0; }
+  .recent-title-info strong { font-size: 12.5px; display: block; }
+  .recent-title-info span { font-size: 10.5px; color: var(--text-dim); display: block; margin-top: 2px; }
+  .recent-title-copy-btn {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+  }
+  .recent-title-copy-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .recent-title-copy-btn.copied { background: rgba(47,214,107,0.14); color: var(--green); border-color: rgba(47,214,107,0.3); }
 
   /* ===================== RACHA DE ACTIVIDAD (HEATMAP) ===================== */
   .heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
@@ -1040,24 +1142,47 @@
     </div>
     <div class="nav-item" data-view="view-movie" onclick="cambiarVista('view-movie', this)">
       <span class="nav-icon"><i class="fa-solid fa-film"></i></span>
-      <span class="nav-label">Agregar Película</span>
+      <span class="nav-label">Películas</span>
     </div>
     <div class="nav-item" data-view="view-series" onclick="cambiarVista('view-series', this)">
       <span class="nav-icon"><i class="fa-solid fa-clapperboard"></i></span>
-      <span class="nav-label">Agregar Serie</span>
+      <span class="nav-label">Series</span>
     </div>
-    <div class="nav-item" data-view="view-links" onclick="cambiarVista('view-links', this)">
-      <span class="nav-icon"><i class="fa-solid fa-link"></i></span>
-      <span class="nav-label">Gestión de Enlaces</span>
+    <div class="nav-item" data-view="view-cast" onclick="cambiarVista('view-cast', this)">
+      <span class="nav-icon"><i class="fa-solid fa-user-group"></i></span>
+      <span class="nav-label">Reparto</span>
+    </div>
+    <div class="nav-item" data-view="view-genres" onclick="cambiarVista('view-genres', this)">
+      <span class="nav-icon"><i class="fa-solid fa-tags"></i></span>
+      <span class="nav-label">Géneros</span>
     </div>
     <div class="nav-item" data-view="view-calendar" onclick="cambiarVista('view-calendar', this)">
       <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
       <span class="nav-label">Calendario de estrenos</span>
     </div>
-    <div class="nav-item" data-view="view-config" onclick="cambiarVista('view-config', this)">
-      <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
-      <span class="nav-label">Configuración de API</span>
+
+    <div class="sidebar-divider" id="adminSectionDivider" style="display:none;"></div>
+    <div class="nav-group-label" id="adminSectionLabel" style="display:none;">Administración</div>
+
+    <div class="nav-item" data-view="view-users" id="navUsersItem" onclick="cambiarVista('view-users', this)" style="display:none;">
+      <span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span>
+      <span class="nav-label">Usuarios</span>
     </div>
+    <div class="nav-item" data-view="view-links" onclick="cambiarVista('view-links', this)">
+      <span class="nav-icon"><i class="fa-solid fa-link"></i></span>
+      <span class="nav-label">Enlaces</span>
+    </div>
+    <div class="nav-item" data-view="view-health" id="navHealthItem" onclick="cambiarVista('view-health', this)" style="display:none;">
+      <span class="nav-icon"><i class="fa-solid fa-heart-pulse"></i></span>
+      <span class="nav-label">Salud</span>
+    </div>
+    <div class="nav-item" data-view="view-reports" id="navReportsItem" onclick="cambiarVista('view-reports', this)" style="display:none;">
+      <span class="nav-icon"><i class="fa-solid fa-flag"></i></span>
+      <span class="nav-label">Reportes</span>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
     <div class="nav-item" data-view="view-settings" onclick="cambiarVista('view-settings', this)">
       <span class="nav-icon"><i class="fa-solid fa-sliders"></i></span>
       <span class="nav-label">Ajustes</span>
@@ -1262,6 +1387,21 @@
             </div>
           </div>
         </div>
+
+        <div class="glass-card" style="margin-top:18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+            <h2 class="section-heading" style="margin-bottom:0;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              Últimas 30 películas agregadas
+            </h2>
+            <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cargarUltimosTitulos('movie')">
+              <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+            </button>
+          </div>
+          <div id="recentMoviesList" class="recent-titles-list" style="margin-top:14px;">
+            <div class="empty-state">Cargando…</div>
+          </div>
+        </div>
       </section>
 
       <!-- ===================== VIEW: AGREGAR SERIE ===================== -->
@@ -1337,6 +1477,97 @@
             </div>
           </div>
         </div>
+
+        <div class="glass-card" style="margin-top:18px; max-width: 640px;">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-list-ol"></i>
+            Reglas de orden de servidores (por defecto)
+          </h2>
+          <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Define cuántas líneas del textarea de enlaces corresponden a un mismo capítulo por defecto. Puedes cambiarlo puntualmente arriba, en el formulario, para una carga específica.</p>
+          <div class="field" style="max-width: 320px;">
+            <label>Enlaces por capítulo (por defecto)</label>
+            <select id="cfg_enlaces_por_capitulo" onchange="guardarReglaOrdenServidores(this.value)">
+              <option value="1">1 enlace = 1 capítulo</option>
+              <option value="2">2 enlaces = 1 capítulo</option>
+              <option value="3">3 enlaces = 1 capítulo</option>
+              <option value="4">4 enlaces = 1 capítulo</option>
+            </select>
+            <span class="hint">Ej: con "2 enlaces = 1 capítulo", las primeras 2 líneas son los servidores del capítulo 1, las siguientes 2 del capítulo 2, y así sucesivamente.</span>
+          </div>
+        </div>
+
+        <div class="glass-card" style="margin-top:18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+            <h2 class="section-heading" style="margin-bottom:0;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              Últimos 30 episodios agregados
+            </h2>
+            <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cargarUltimosTitulos('tv')">
+              <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+            </button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin:8px 0 0 0;">Cada fila es un episodio individual — el póster mostrado es el de la serie, repetido por cada capítulo.</p>
+          <div id="recentSeriesList" class="recent-titles-list" style="margin-top:14px;">
+            <div class="empty-state">Cargando…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: USUARIOS (solo Admin) ===================== -->
+      <section id="view-users" class="view">
+        <div class="glass-card" style="max-width: 640px;">
+          <h2 class="section-heading"><i class="fa-solid fa-users-gear"></i> Editar usuario</h2>
+          <div class="role-notice">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Editar el perfil o rol de OTRO usuario requiere permisos de <code>service_role</code> de Supabase, que este panel no incluye por seguridad (solo puedes editar tu propio perfil desde Ajustes). Usa los botones de abajo para generar el comando SQL exacto y ejecútalo tú mismo en el SQL Editor de tu proyecto de login.</span>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field">
+              <label>Correo del usuario</label>
+              <input type="text" id="user_target_email" placeholder="usuario@correo.com">
+              <span class="hint">Debe ser un usuario que ya exista en Supabase Auth (créalo primero desde el dashboard de Supabase si aún no existe).</span>
+            </div>
+            <div class="form-row-2">
+              <div class="field">
+                <label>Nuevo nickname (opcional)</label>
+                <input type="text" id="user_target_nickname" placeholder="Ej: Juan">
+              </div>
+              <div class="field">
+                <label>Nueva URL de foto (opcional)</label>
+                <input type="text" id="user_target_avatar" placeholder="https://miurl.com/foto.jpg">
+              </div>
+            </div>
+            <div class="field">
+              <label>Nuevo rol</label>
+              <select id="user_target_role">
+                <option value="admin">Administrador</option>
+                <option value="uploader" selected>Uploader</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-primary" style="width:fit-content;" onclick="generarSqlUsuario()">
+              <i class="fa-solid fa-code"></i> Generar comando SQL
+            </button>
+            <div class="field hidden" id="userSqlOutputWrap">
+              <label>Copia y ejecuta esto en Supabase (proyecto de LOGIN) → SQL Editor</label>
+              <textarea id="userSqlOutput" readonly style="font-size:11.5px; min-height:110px;"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card" style="max-width: 640px; margin-top:18px;">
+          <h2 class="section-heading"><i class="fa-solid fa-id-badge"></i> Tu cuenta</h2>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="admin-avatar" style="width:48px;height:48px;font-size:18px;" id="usersOwnAvatarPreview">A</div>
+            <div>
+              <div style="font-weight:700; font-size:14px;" id="usersOwnNamePreview">Administrador</div>
+              <div class="role-badge-pill" style="margin-top:6px;">
+                <i class="fa-solid fa-user"></i>
+                <span id="usersOwnRoleBadge">—</span>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:11.5px; color:var(--text-dim); margin:14px 0 0 0;">Para cambiar tu propio nickname o foto, ve a Ajustes → Perfil.</p>
+        </div>
       </section>
 
       <!-- ===================== VIEW: GESTIÓN DE ENLACES ===================== -->
@@ -1370,6 +1601,59 @@
               <tbody id="cuerpoTablaEditor"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: SALUD (solo Admin) ===================== -->
+      <section id="view-health" class="view">
+        <div class="glass-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+            <h2 class="section-heading" style="margin-bottom:0;">
+              <i class="fa-solid fa-heart-pulse"></i>
+              Estado de los servicios
+            </h2>
+            <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="ejecutarChequeoSalud()">
+              <i class="fa-solid fa-arrows-rotate"></i> Verificar ahora
+            </button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin:8px 0 18px 0;">Verificación bajo demanda desde tu navegador. No es un monitoreo permanente — cada vez que entras aquí o presionas "Verificar ahora", se hace un chequeo puntual de cada servicio.</p>
+          <div id="healthChecksGrid" class="health-grid">
+            <div class="empty-state">Presiona "Verificar ahora" para comenzar.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: REPORTES (solo Admin, ilustrativo) ===================== -->
+      <section id="view-reports" class="view">
+        <div class="glass-card">
+          <h2 class="section-heading">
+            <i class="fa-solid fa-flag"></i>
+            Reportes de enlaces
+          </h2>
+          <div class="role-notice">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Esta sección es una vista previa ilustrativa. Aún no existe un mecanismo para que los usuarios reporten enlaces caídos o con problemas — los datos de abajo son de ejemplo para mostrar cómo se vería una vez implementado.</span>
+          </div>
+          <div class="table-wrap" style="margin-top:16px;">
+            <table class="data-table">
+              <thead><tr><th>Título</th><th>Motivo</th><th>Reportado por</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>TMDB #157336</strong></td>
+                  <td><span class="badge tv" style="background:rgba(245,166,35,0.14); color:var(--amber);">Enlace caído</span></td>
+                  <td>usuario_ejemplo@correo.com</td>
+                  <td><span class="badge movie">Pendiente</span></td>
+                </tr>
+                <tr>
+                  <td><strong>TMDB #1396 · Temp 2 · Cap 5</strong></td>
+                  <td><span class="badge tv" style="background:rgba(229,9,20,0.1); color:var(--red);">Video sin audio</span></td>
+                  <td>otro_usuario@correo.com</td>
+                  <td><span class="badge movie">Pendiente</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:11px; color:var(--text-dim); margin-top:14px;">Cuando implementes el mecanismo de reportes (ej. un botón "Reportar" en tu web pública que escriba a una tabla nueva en Supabase), esta tabla puede conectarse a datos reales.</p>
         </div>
       </section>
 
@@ -1448,23 +1732,49 @@
         </div>
       </section>
 
-      <!-- ===================== VIEW: CONFIGURACIÓN DE API ===================== -->
-      <section id="view-config" class="view">
-        <div class="glass-card" style="max-width: 640px;">
+      <!-- ===================== VIEW: REPARTO ===================== -->
+      <section id="view-cast" class="view">
+        <div class="glass-card">
           <h2 class="section-heading">
-            <i class="fa-solid fa-list-ol"></i>
-            Reglas de orden de servidores — Series
+            <i class="fa-solid fa-user-group"></i>
+            Reparto de tu catálogo
           </h2>
-          <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Define cuántas líneas del textarea de enlaces corresponden a un mismo capítulo. Este valor se usa por defecto al abrir el formulario de "Agregar Serie", pero puedes cambiarlo ahí puntualmente para una carga específica.</p>
-          <div class="field" style="max-width: 320px;">
-            <label>Enlaces por capítulo (por defecto)</label>
-            <select id="cfg_enlaces_por_capitulo" onchange="guardarReglaOrdenServidores(this.value)">
-              <option value="1">1 enlace = 1 capítulo</option>
-              <option value="2">2 enlaces = 1 capítulo</option>
-              <option value="3">3 enlaces = 1 capítulo</option>
-              <option value="4">4 enlaces = 1 capítulo</option>
-            </select>
-            <span class="hint">Ej: con "2 enlaces = 1 capítulo", las primeras 2 líneas son los servidores del capítulo 1, las siguientes 2 del capítulo 2, y así sucesivamente.</span>
+          <p style="font-size:12px; color:var(--text-muted); margin:-6px 0 16px 0;">Busca un título ya guardado para ver su reparto (vía TMDB). No se guarda nada nuevo en Supabase — es solo consulta.</p>
+          <div class="search-box">
+            <input type="text" id="cast_search_query" placeholder="Buscar título en tu catálogo…" autocomplete="off">
+            <div id="castSearchResults" class="search-results hidden"></div>
+          </div>
+          <div id="castSelectedTitle" class="hidden" style="margin-top:16px;">
+            <div class="preview-box" style="margin-bottom:18px;">
+              <img id="castTitlePoster" class="preview-poster" src="" alt="">
+              <div class="preview-info"><strong id="castTitleName">-</strong><p id="castTitleMeta">-</p></div>
+              <button type="button" class="preview-clear" onclick="limpiarReparto()">✕</button>
+            </div>
+            <div id="castGrid" class="cast-grid"></div>
+          </div>
+          <div id="castEmptyState" class="empty-state">Busca un título de tu catálogo para ver su reparto.</div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: GÉNEROS ===================== -->
+      <section id="view-genres" class="view">
+        <div class="glass-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+            <h2 class="section-heading" style="margin-bottom:0;">
+              <i class="fa-solid fa-tags"></i>
+              Géneros de tu catálogo
+            </h2>
+            <button type="button" class="btn btn-secondary" style="padding:8px 14px; font-size:12px;" onclick="cargarGenerosCatalogo()">
+              <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+            </button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin:8px 0 16px 0;">Organización visual de géneros (vía TMDB) de todos los títulos que ya tienes guardados. Haz click en un género para ver esos títulos.</p>
+          <div id="genresChipsWrap" class="genre-chips-wrap">
+            <div class="empty-state">Cargando géneros…</div>
+          </div>
+          <div id="genresTitlesWrap" class="hidden" style="margin-top:20px;">
+            <h3 style="font-size:13px; font-weight:700; margin:0 0 12px 0;" id="genresSelectedLabel">Títulos</h3>
+            <div id="genresTitlesGrid" class="discover-grid"></div>
           </div>
         </div>
       </section>
@@ -1820,11 +2130,20 @@
     const navLinks = document.querySelector('.nav-item[data-view="view-links"]');
     if (navLinks) navLinks.style.display = esAdmin() ? '' : 'none';
 
+    const idsSoloAdmin = ['navUsersItem', 'navHealthItem', 'navReportsItem', 'adminSectionDivider', 'adminSectionLabel'];
+    idsSoloAdmin.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = esAdmin() ? '' : 'none';
+    });
+
     const navRoles = document.getElementById('navRolesTab');
     if (navRoles) navRoles.style.display = esAdmin() ? '' : 'none';
 
     const roleBadge = document.getElementById('profileRoleBadge');
     if (roleBadge) roleBadge.innerText = ROLE_LABELS[currentRole] || currentRole;
+
+    const usersOwnRoleBadge = document.getElementById('usersOwnRoleBadge');
+    if (usersOwnRoleBadge) usersOwnRoleBadge.innerText = ROLE_LABELS[currentRole] || currentRole;
   }
 
   function aplicarPerfilVisual(nickname, avatarUrl, email) {
@@ -1834,6 +2153,8 @@
     if (nameEl) nameEl.innerText = nickname;
     const emailEl = document.getElementById('profileEmailPreview');
     if (emailEl && email) emailEl.innerText = email;
+    const usersOwnNameEl = document.getElementById('usersOwnNamePreview');
+    if (usersOwnNameEl) usersOwnNameEl.innerText = nickname;
 
     document.querySelectorAll('.admin-avatar').forEach(a => {
       if (avatarUrl) {
@@ -1950,11 +2271,15 @@
    * ------------------------------------------------------------------- */
   const VIEW_META = {
     'view-dashboard': { title: 'Dashboard' },
-    'view-movie': { title: 'Agregar Película' },
-    'view-series': { title: 'Agregar Serie' },
-    'view-links': { title: 'Gestión de Enlaces' },
+    'view-movie': { title: 'Películas' },
+    'view-series': { title: 'Series' },
+    'view-cast': { title: 'Reparto' },
+    'view-genres': { title: 'Géneros' },
     'view-calendar': { title: 'Calendario de estrenos' },
-    'view-config': { title: 'Configuración de API' },
+    'view-users': { title: 'Usuarios' },
+    'view-links': { title: 'Enlaces' },
+    'view-health': { title: 'Salud' },
+    'view-reports': { title: 'Reportes' },
     'view-settings': { title: 'Ajustes' },
   };
 
@@ -1971,8 +2296,14 @@
       cargarEstadisticas();
       actualizarSaludoDashboard();
     }
-    if (viewId === 'view-config') pintarConfig();
+    if (viewId === 'view-movie') cargarUltimosTitulos('movie');
+    if (viewId === 'view-series') {
+      pintarConfig();
+      cargarUltimosTitulos('tv');
+    }
     if (viewId === 'view-calendar') cargarCalendarioEstrenos();
+    if (viewId === 'view-genres') cargarGenerosCatalogo();
+    if (viewId === 'view-health') ejecutarChequeoSalud();
 
     if (window.innerWidth <= 980) cerrarSidebar();
   }
@@ -2641,6 +2972,395 @@
   }
 
   /* ---------------------------------------------------------------------
+   * CATÁLOGO ENRIQUECIDO CON TMDB (cache en memoria durante la sesión)
+   * Usado por Reparto y Géneros: cruza tus tmdb_id únicos con TMDB para
+   * poder ofrecer búsqueda por nombre y filtrado por género.
+   * ------------------------------------------------------------------- */
+  let catalogoEnriquecidoCache = null;
+
+  async function obtenerCatalogoEnriquecido(forzarRecarga = false) {
+    if (catalogoEnriquecidoCache && !forzarRecarga) return catalogoEnriquecidoCache;
+
+    const filas = await obtenerTodasLasFilasCatalogo();
+    const moviesUnicas = [...new Set(filas.filter(f => f.tipo === 'movie').map(f => f.tmdb_id))];
+    const seriesUnicas = [...new Set(filas.filter(f => f.tipo === 'tv').map(f => f.tmdb_id))];
+
+    const [datosMovies, datosSeries] = await Promise.all([
+      consultarEnLotes(moviesUnicas, id => consultarDetalleMovie(id)),
+      consultarEnLotes(seriesUnicas, id => consultarDetalleSerie(id))
+    ]);
+
+    const catalogo = [...datosMovies, ...datosSeries].filter(Boolean);
+    catalogoEnriquecidoCache = catalogo;
+    return catalogo;
+  }
+
+  async function consultarDetalleMovie(tmdbId) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        tmdbId: String(tmdbId), tipo: 'movie', titulo: data.title,
+        poster: data.poster_path ? `https://image.tmdb.org/t/p/w154${data.poster_path}` : '',
+        anio: (data.release_date || '').split('-')[0] || '----',
+        generos: (data.genres || []).map(g => g.name)
+      };
+    } catch (e) { return null; }
+  }
+
+  async function consultarDetalleSerie(tmdbId) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        tmdbId: String(tmdbId), tipo: 'tv', titulo: data.name,
+        poster: data.poster_path ? `https://image.tmdb.org/t/p/w154${data.poster_path}` : '',
+        anio: (data.first_air_date || '').split('-')[0] || '----',
+        generos: (data.genres || []).map(g => g.name)
+      };
+    } catch (e) { return null; }
+  }
+
+  /* ---------------------------------------------------------------------
+   * REPARTO — búsqueda de títulos ya guardados y consulta de reparto TMDB
+   * ------------------------------------------------------------------- */
+  let castDebounceTimer = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const inputCast = document.getElementById('cast_search_query');
+    if (!inputCast) return;
+    inputCast.addEventListener('input', () => {
+      clearTimeout(castDebounceTimer);
+      const query = inputCast.value.trim().toLowerCase();
+      const resultsDiv = document.getElementById('castSearchResults');
+      if (!query) { resultsDiv.classList.add('hidden'); resultsDiv.innerHTML = ''; return; }
+      resultsDiv.classList.remove('hidden');
+      resultsDiv.innerHTML = '<div class="search-loading">Buscando en tu catálogo…</div>';
+      castDebounceTimer = setTimeout(() => buscarEnCatalogoParaReparto(query), 400);
+    });
+    document.addEventListener('click', (e) => {
+      if (!inputCast.contains(e.target) && !document.getElementById('castSearchResults').contains(e.target)) {
+        document.getElementById('castSearchResults').classList.add('hidden');
+      }
+    });
+  });
+
+  async function buscarEnCatalogoParaReparto(query) {
+    const resultsDiv = document.getElementById('castSearchResults');
+    try {
+      const catalogo = await obtenerCatalogoEnriquecido();
+      const coincidencias = catalogo.filter(item => item.titulo && item.titulo.toLowerCase().includes(query)).slice(0, 8);
+
+      if (coincidencias.length === 0) {
+        resultsDiv.innerHTML = '<div class="search-loading">Sin coincidencias en tu catálogo.</div>';
+        return;
+      }
+
+      resultsDiv.innerHTML = coincidencias.map(item => {
+        const posterImg = item.poster ? `<img class="result-poster" src="${item.poster}">` : `<div class="result-poster"></div>`;
+        const badge = item.tipo === 'movie' ? '🎬 Película' : '🍿 Serie';
+        return `<div class="result-item" onclick="mostrarRepartoDe('${item.tmdbId}', '${item.tipo}', '${item.titulo.replace(/'/g, "\\'")}', '${item.poster}', '${item.anio}')">
+          ${posterImg}
+          <div class="result-details"><h4>${item.titulo}</h4><p>${badge} • ${item.anio}</p></div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      resultsDiv.innerHTML = '<div class="search-loading">Error al buscar en tu catálogo.</div>';
+    }
+  }
+
+  async function mostrarRepartoDe(tmdbId, tipo, titulo, poster, anio) {
+    document.getElementById('castSearchResults').classList.add('hidden');
+    document.getElementById('cast_search_query').value = titulo;
+    document.getElementById('castEmptyState').classList.add('hidden');
+    document.getElementById('castSelectedTitle').classList.remove('hidden');
+
+    document.getElementById('castTitlePoster').src = poster;
+    document.getElementById('castTitleName').innerText = titulo;
+    document.getElementById('castTitleMeta').innerText = `${tipo === 'movie' ? '🎬 Película' : '🍿 Serie'} • ${anio}`;
+
+    const grid = document.getElementById('castGrid');
+    grid.innerHTML = '<div class="empty-state">Cargando reparto…</div>';
+
+    try {
+      const endpoint = tipo === 'movie' ? 'movie' : 'tv';
+      const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}/credits?api_key=${TMDB_API_KEY}&language=es-MX`);
+      if (!res.ok) throw new Error('No se pudo consultar el reparto.');
+      const data = await res.json();
+      const reparto = (data.cast || []).slice(0, 24);
+
+      if (reparto.length === 0) {
+        grid.innerHTML = '<div class="empty-state">TMDB no tiene reparto registrado para este título.</div>';
+        return;
+      }
+
+      grid.innerHTML = reparto.map(persona => {
+        const foto = persona.profile_path ? `https://image.tmdb.org/t/p/w185${persona.profile_path}` : '';
+        const fotoHtml = foto
+          ? `<img src="${foto}" alt="${persona.name}" onerror="this.parentElement.innerHTML='<div class=&quot;cast-fallback-icon&quot;><i class=&quot;fa-solid fa-user&quot;></i></div>';">`
+          : `<div class="cast-fallback-icon"><i class="fa-solid fa-user"></i></div>`;
+        return `<div class="cast-card">
+          <div class="cast-photo-wrap">${fotoHtml}</div>
+          <strong>${persona.name}</strong>
+          <span>${persona.character || '—'}</span>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      grid.innerHTML = '<div class="empty-state">Error al consultar el reparto en TMDB.</div>';
+    }
+  }
+
+  function limpiarReparto() {
+    document.getElementById('cast_search_query').value = '';
+    document.getElementById('castSelectedTitle').classList.add('hidden');
+    document.getElementById('castEmptyState').classList.remove('hidden');
+  }
+
+  /* ---------------------------------------------------------------------
+   * GÉNEROS — organización visual del catálogo por género (TMDB)
+   * ------------------------------------------------------------------- */
+  let generosCatalogoCache = null;
+
+  async function cargarGenerosCatalogo() {
+    const wrap = document.getElementById('genresChipsWrap');
+    wrap.innerHTML = '<div class="empty-state">Cargando géneros…</div>';
+    document.getElementById('genresTitlesWrap').classList.add('hidden');
+
+    try {
+      const catalogo = await obtenerCatalogoEnriquecido(true);
+      generosCatalogoCache = catalogo;
+
+      const conteo = {};
+      catalogo.forEach(item => {
+        (item.generos || []).forEach(g => { conteo[g] = (conteo[g] || 0) + 1; });
+      });
+
+      const generos = Object.entries(conteo).sort((a, b) => b[1] - a[1]);
+
+      if (generos.length === 0) {
+        wrap.innerHTML = '<div class="empty-state">No se encontraron géneros. Agrega contenido a tu catálogo primero.</div>';
+        return;
+      }
+
+      wrap.innerHTML = generos.map(([nombre, cantidad]) => `
+        <div class="genre-chip" onclick="mostrarTitulosPorGenero('${nombre.replace(/'/g, "\\'")}', this)">
+          <span>${nombre}</span>
+          <span class="genre-count">${cantidad}</span>
+        </div>`).join('');
+    } catch (err) {
+      wrap.innerHTML = '<div class="empty-state">Error al cargar géneros desde TMDB.</div>';
+    }
+  }
+
+  function mostrarTitulosPorGenero(nombreGenero, el) {
+    document.querySelectorAll('.genre-chip').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    const titulosWrap = document.getElementById('genresTitlesWrap');
+    const grid = document.getElementById('genresTitlesGrid');
+    const label = document.getElementById('genresSelectedLabel');
+
+    const titulos = (generosCatalogoCache || []).filter(item => (item.generos || []).includes(nombreGenero));
+    label.innerText = `${nombreGenero} (${titulos.length})`;
+    titulosWrap.classList.remove('hidden');
+
+    if (titulos.length === 0) {
+      grid.innerHTML = '<div class="empty-state">Sin títulos para este género.</div>';
+      return;
+    }
+
+    grid.innerHTML = titulos.map(item => {
+      const posterImg = item.poster ? `<img src="${item.poster}" alt="${item.titulo}">` : '';
+      const badge = item.tipo === 'movie' ? '🎬' : '🍿';
+      return `<div class="discover-card">
+        <div class="discover-poster-wrap">${posterImg}</div>
+        <div class="discover-info">
+          <strong>${badge} ${item.titulo}</strong>
+          <span>${item.anio}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+
+  /* ---------------------------------------------------------------------
+   * SALUD — verificación bajo demanda de TMDB, Worker, y ambos Supabase.
+   * Todo corre desde el navegador del admin al abrir esta vista o pedir
+   * "Verificar ahora"; no es un monitoreo permanente en segundo plano.
+   * ------------------------------------------------------------------- */
+  const HEALTH_CHECKS = [
+    { id: 'tmdb', label: 'API de TMDB', desc: 'Búsqueda y datos de películas/series', icon: 'fa-clapperboard' },
+    { id: 'worker', label: 'Worker de acceso', desc: 'Protección de dashboard.html', icon: 'fa-shield-halved' },
+    { id: 'supabase-content', label: 'Supabase — Contenido', desc: 'Tabla de enlaces y catálogo', icon: 'fa-database' },
+    { id: 'supabase-auth', label: 'Supabase — Login', desc: 'Autenticación de usuarios', icon: 'fa-key' },
+  ];
+
+  function renderHealthGrid(estados) {
+    const grid = document.getElementById('healthChecksGrid');
+    grid.innerHTML = HEALTH_CHECKS.map(chk => {
+      const estado = estados[chk.id] || { status: 'checking', detail: 'Verificando…' };
+      return `<div class="health-card">
+        <div class="health-icon ${estado.status}"><i class="fa-solid ${chk.icon}"></i></div>
+        <div class="health-info">
+          <strong>${chk.label}</strong>
+          <span>${estado.detail}</span>
+        </div>
+        <span class="health-status-label ${estado.status}">${
+          estado.status === 'ok' ? 'OK' : estado.status === 'fail' ? 'Falla' : '...'
+        }</span>
+      </div>`;
+    }).join('');
+  }
+
+  async function ejecutarChequeoSalud() {
+    const estados = {};
+    HEALTH_CHECKS.forEach(chk => { estados[chk.id] = { status: 'checking', detail: 'Verificando…' }; });
+    renderHealthGrid(estados);
+
+    // ---- TMDB ----
+    (async () => {
+      try {
+        const inicio = Date.now();
+        const res = await fetch(`https://api.themoviedb.org/3/configuration?api_key=${TMDB_API_KEY}`);
+        const ms = Date.now() - inicio;
+        estados.tmdb = res.ok
+          ? { status: 'ok', detail: `Respondió en ${ms}ms` }
+          : { status: 'fail', detail: `Error HTTP ${res.status}` };
+      } catch (e) {
+        estados.tmdb = { status: 'fail', detail: 'No se pudo conectar' };
+      }
+      renderHealthGrid(estados);
+    })();
+
+    // ---- Worker (si llegaste hasta aquí logueado, el Worker ya te dejó pasar;
+    // esto solo confirma que sigue respondiendo en este momento) ----
+    (async () => {
+      try {
+        const inicio = Date.now();
+        const res = await fetch(window.location.origin + '/dashboard.html', { method: 'HEAD', credentials: 'include' });
+        const ms = Date.now() - inicio;
+        estados.worker = (res.ok || res.status === 304)
+          ? { status: 'ok', detail: `Sirviendo con normalidad (${ms}ms)` }
+          : { status: 'fail', detail: `Respuesta inesperada: HTTP ${res.status}` };
+      } catch (e) {
+        estados.worker = { status: 'fail', detail: 'No se pudo verificar' };
+      }
+      renderHealthGrid(estados);
+    })();
+
+    // ---- Supabase de contenido ----
+    (async () => {
+      try {
+        const inicio = Date.now();
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?select=id&limit=1`, { headers: SUPABASE_HEADERS });
+        const ms = Date.now() - inicio;
+        estados['supabase-content'] = res.ok
+          ? { status: 'ok', detail: `Respondió en ${ms}ms` }
+          : { status: 'fail', detail: `Error HTTP ${res.status}` };
+      } catch (e) {
+        estados['supabase-content'] = { status: 'fail', detail: 'No se pudo conectar' };
+      }
+      renderHealthGrid(estados);
+    })();
+
+    // ---- Supabase de login (endpoint público de settings, no requiere sesión) ----
+    (async () => {
+      try {
+        const inicio = Date.now();
+        const res = await fetch(`${AUTH_SUPABASE_URL}/auth/v1/settings`, { headers: AUTH_HEADERS_BASE });
+        const ms = Date.now() - inicio;
+        estados['supabase-auth'] = res.ok
+          ? { status: 'ok', detail: `Respondió en ${ms}ms` }
+          : { status: 'fail', detail: `Error HTTP ${res.status}` };
+      } catch (e) {
+        estados['supabase-auth'] = { status: 'fail', detail: 'No se pudo conectar' };
+      }
+      renderHealthGrid(estados);
+    })();
+  }
+
+  /* ---------------------------------------------------------------------
+   * ÚLTIMOS TÍTULOS AGREGADOS (Películas / Series) — con botón copiar link
+   * Para series, cada fila es un EPISODIO individual (no título único),
+   * y el póster mostrado es el de la serie, repetido por cada capítulo.
+   * ------------------------------------------------------------------- */
+  async function cargarUltimosTitulos(tipo) {
+    const contenedorId = tipo === 'movie' ? 'recentMoviesList' : 'recentSeriesList';
+    const contenedor = document.getElementById(contenedorId);
+    if (!contenedor) return;
+
+    contenedor.innerHTML = '<div class="empty-state">Cargando…</div>';
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLA_ENLACES}?tipo=eq.${tipo}&select=*&order=created_at.desc&limit=30`,
+        { headers: SUPABASE_HEADERS }
+      );
+      if (!res.ok) throw new Error('No se pudo consultar Supabase.');
+      const filas = await res.json();
+
+      if (filas.length === 0) {
+        contenedor.innerHTML = '<div class="empty-state">Todavía no hay contenido agregado.</div>';
+        return;
+      }
+
+      // Traer datos de TMDB (título + póster) para los tmdb_id involucrados,
+      // reutilizando el mismo póster de la serie/película en cada fila.
+      const idsUnicos = [...new Set(filas.map(f => f.tmdb_id))];
+      const detalles = await consultarEnLotes(
+        idsUnicos,
+        id => tipo === 'movie' ? consultarDetalleMovie(id) : consultarDetalleSerie(id)
+      );
+      const detallePorId = {};
+      detalles.forEach(d => { if (d) detallePorId[d.tmdbId] = d; });
+
+      contenedor.innerHTML = filas.map(fila => {
+        const detalle = detallePorId[String(fila.tmdb_id)];
+        const titulo = detalle?.titulo || `TMDB #${fila.tmdb_id}`;
+        const poster = detalle?.poster || '';
+        const posterImg = poster
+          ? `<img class="recent-title-poster" src="${poster}" onerror="this.style.display='none'">`
+          : `<div class="recent-title-poster"></div>`;
+
+        const metaLinea = tipo === 'movie'
+          ? `${fila.idioma || '—'} · ${fila.servidor || 'Auto'}`
+          : `Temp ${fila.temporada} · Cap ${fila.episodio} · ${fila.idioma || '—'}`;
+
+        const urlEscapada = (fila.url_embed || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+        return `<div class="recent-title-item">
+          ${posterImg}
+          <div class="recent-title-info">
+            <strong>${titulo}</strong>
+            <span>${metaLinea}</span>
+          </div>
+          <button type="button" class="recent-title-copy-btn" onclick="copiarLinkEnlace('${urlEscapada}', this)">
+            <i class="fa-solid fa-copy"></i> Copiar link
+          </button>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      contenedor.innerHTML = '<div class="empty-state">Error al cargar los últimos títulos.</div>';
+    }
+  }
+
+  function copiarLinkEnlace(url, btn) {
+    navigator.clipboard.writeText(url).then(() => {
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('copied');
+      }, 1800);
+    }).catch(() => {
+      mostrarToast('No se pudo copiar el enlace. Cópialo manualmente.', 'error');
+    });
+  }
+
+  /* ---------------------------------------------------------------------
    * CALENDARIO: TABS (Mi catálogo / Descubrir)
    * ------------------------------------------------------------------- */
   function cambiarTabCalendario(tabId, el) {
@@ -2884,6 +3604,7 @@
         document.getElementById('peliForm').reset();
         limpiarPreview('movie');
         cargarEstadisticas();
+        cargarUltimosTitulos('movie');
       } else {
         const errText = await res.text();
         let detalle = errText;
@@ -2975,6 +3696,7 @@
         limpiarPreview('tv');
         actualizarContadorCapitulos();
         cargarEstadisticas();
+        cargarUltimosTitulos('tv');
       } else {
         const errText = await res.text();
         let detalle = errText;
@@ -3253,6 +3975,33 @@ where email = '${emailEscapado}';`;
     document.getElementById('roleSqlOutput').value = sql;
     document.getElementById('roleSqlOutputWrap').classList.remove('hidden');
     mostrarToast('Comando SQL generado. Cópialo y ejecútalo en Supabase → SQL Editor.', 'info');
+  }
+
+  // Versión ampliada para la sección "Usuarios": permite generar SQL para
+  // rol + nickname + avatar en un solo comando, o solo lo que se llene.
+  function generarSqlUsuario() {
+    const email = document.getElementById('user_target_email').value.trim();
+    const nickname = document.getElementById('user_target_nickname').value.trim();
+    const avatarUrl = document.getElementById('user_target_avatar').value.trim();
+    const rol = document.getElementById('user_target_role').value;
+
+    if (!email) {
+      mostrarToast('Escribe el correo del usuario.', 'error');
+      return;
+    }
+
+    const emailEscapado = email.replace(/'/g, "''");
+    const metadataObj = { role: rol };
+    if (nickname) metadataObj.nickname = nickname;
+    if (avatarUrl) metadataObj.avatar_url = avatarUrl;
+
+    const sql = `update auth.users
+set raw_user_meta_data = raw_user_meta_data || '${JSON.stringify(metadataObj)}'::jsonb
+where email = '${emailEscapado}';`;
+
+    document.getElementById('userSqlOutput').value = sql;
+    document.getElementById('userSqlOutputWrap').classList.remove('hidden');
+    mostrarToast('Comando SQL generado. Cópialo y ejecútalo en Supabase (proyecto de login) → SQL Editor.', 'info');
   }
 
   /* ---------------------------------------------------------------------
