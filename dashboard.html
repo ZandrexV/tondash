@@ -3253,7 +3253,7 @@ where email = '${emailEscapado}';`;
    * MARCA DEL PANEL — logo y nombre fijos desde config.js
    * ------------------------------------------------------------------- */
   function previsualizarLogo(url) {
-    const targets = [document.getElementById('brandMark'), document.getElementById('loginBrandMark')];
+    const targets = [document.getElementById('brandMark')];
     targets.forEach(el => {
       if (!el) return;
       if (url && url.trim() !== '') {
@@ -3266,7 +3266,8 @@ where email = '${emailEscapado}';`;
 
   function aplicarMarca(nombre, logoUrl) {
     const nombreFinal = nombre && nombre.trim() !== '' ? nombre.trim() : DEFAULT_BRAND_NAME;
-    document.getElementById('loginBrandName').innerText = nombreFinal.toUpperCase();
+    const loginBrandNameEl = document.getElementById('loginBrandName');
+    if (loginBrandNameEl) loginBrandNameEl.innerText = nombreFinal.toUpperCase();
     previsualizarLogo(logoUrl || '');
     const meta = VIEW_META[document.querySelector('.view.active')?.id] || VIEW_META['view-dashboard'];
     document.title = `${meta.title} — ${nombreFinal}`;
