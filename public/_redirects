@@ -1,0 +1,6 @@
+# _redirects
+# Las rutas /play/... son interceptadas por functions/play/[[path]].js
+# Aquí puedes añadir otras redirecciones estáticas si las necesitas.
+
+# Ejemplo (descomenta si te sirve):
+# /  https://tu-dominio.com/home  302
