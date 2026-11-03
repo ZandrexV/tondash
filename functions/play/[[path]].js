@@ -1,36 +1,34 @@
 // functions/play/[[path]].js
-// Redirector con spinner + backdrop de TMDB para /play/movie/:id y /play/tv/:id/:season/:episode
+// Redirector con spinner violeta + backdrop de TMDB
+// Soporta: /play/movie/:id  y  /play/tv/:id/:season/:episode
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  const pathParts = url.pathname.split('/').filter(Boolean); // ["play", "movie", "123"]
+  const pathParts = url.pathname.split('/').filter(Boolean); // ["play","movie","123"]
 
   // ── 1. Validar la ruta ──────────────────────────────────────────────
   if (pathParts.length < 3 || pathParts[0] !== 'play') {
     return new Response('Ruta inválida', { status: 400 });
   }
 
-  const type = pathParts[1];            // "movie" o "tv"
-  const id = pathParts[2];              // ID de TMDB
-  const season = pathParts[3];          // (solo TV)
-  const episode = pathParts[4];         // (solo TV)
+  const type    = pathParts[1]; // "movie" o "tv"
+  const id      = pathParts[2]; // ID de TMDB
+  const season  = pathParts[3]; // (solo TV)
+  const episode = pathParts[4]; // (solo TV)
 
-  // Validar tipo
   if (type !== 'movie' && type !== 'tv') {
     return new Response('Tipo inválido. Debe ser "movie" o "tv"', { status: 400 });
   }
 
-  // Validar estructura TV (necesita temporada y episodio)
   if (type === 'tv' && (!season || !episode)) {
     return new Response('Faltan temporada o episodio en la URL', { status: 400 });
   }
 
-  // Validar que el ID sea numérico (previene inyecciones)
   if (!/^\d+$/.test(id)) {
     return new Response('ID de TMDB inválido', { status: 400 });
   }
 
-  // ── 2. Obtener datos de TMDB (backdrop + título) ────────────────────
+  // ── 2. Obtener datos de TMDB (backdrop + título para metadatos) ─────
   const tmdbApiKey = context.env.TMDB_API_KEY;
   let backdropUrl = '';
   let title = '';
@@ -48,28 +46,23 @@ export async function onRequest(context) {
       if (tmdbRes.ok) {
         const data = await tmdbRes.json();
 
-        // Backdrop en alta calidad (w1280 = buen balance calidad/peso)
         if (data.backdrop_path) {
           backdropUrl = `https://image.tmdb.org/t/p/w1280${data.backdrop_path}`;
         }
 
-        // Título (movie → title, tv → name)
         title = data.title || data.name || '';
-
-        // Año (movie → release_date, tv → first_air_date)
         const dateStr = data.release_date || data.first_air_date || '';
         if (dateStr) year = dateStr.substring(0, 4);
       }
     } catch (e) {
-      // Si TMDB falla, continuamos sin backdrop (no bloqueamos la redirección)
       console.error('Error al consultar TMDB:', e);
     }
   }
 
-  // ── 3. Construir la URL de destino final ────────────────────────────
+  // ── 3. Construir URL de destino ─────────────────────────────────────
   const destination = new URL(url.pathname + url.search, 'https://player.tonplayer.space');
 
-  // ── 4. Escapar el título para insertarlo en HTML de forma segura ────
+  // ── 4. Escapar título (para <title> y OG) ───────────────────────────
   const safeTitle = title
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -79,7 +72,7 @@ export async function onRequest(context) {
 
   const displayTitle = safeTitle
     ? `${safeTitle}${year ? ` (${year})` : ''}`
-    : 'Cargando...';
+    : 'Cargando…';
 
   // ── 5. HTML de la página de redirección ─────────────────────────────
   const html = `<!DOCTYPE html>
@@ -87,7 +80,6 @@ export async function onRequest(context) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex, nofollow">
   <title>${displayTitle}</title>
 
   <!-- ═══ FAVICONS (compatibles con Google Search) ═══ -->
@@ -96,7 +88,7 @@ export async function onRequest(context) {
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <!-- ═══ Open Graph (buena práctica al compartir) ═══ -->
+  <!-- ═══ Open Graph ═══ -->
   <meta property="og:title" content="${displayTitle}">
   <meta property="og:type" content="${type === 'movie' ? 'video.movie' : 'video.tv_show'}">
   ${backdropUrl ? `<meta property="og:image" content="${backdropUrl}">` : ''}
@@ -114,7 +106,6 @@ export async function onRequest(context) {
       background-position: center;
       background-attachment: fixed;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #fff;
       overflow: hidden;
     }
     /* Overlay oscuro para destacar el spinner */
@@ -122,66 +113,46 @@ export async function onRequest(context) {
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.9) 100%);
+      background: rgba(0, 0, 0, 0.7);
       z-index: 1;
     }
-    .container {
+    /* Spinner pequeño violeta, sin texto */
+    .spinner {
       position: relative;
       z-index: 2;
-      text-align: center;
-      padding: 2rem;
-      max-width: 90vw;
-    }
-    .spinner {
-      width: 56px;
-      height: 56px;
-      border: 4px solid rgba(255, 255, 255, 0.15);
-      border-top-color: #fff;
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(139, 92, 246, 0.25); /* violeta tenue */
+      border-top-color: #8b5cf6;                  /* violeta intenso */
       border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-      margin: 0 auto 1.5rem;
+      animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .title {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-      line-height: 1.3;
-    }
-    .subtitle {
-      font-size: 0.95rem;
-      color: rgba(255, 255, 255, 0.7);
-      margin: 0;
-    }
-    /* Respeto por usuarios que prefieren menos animación */
+
+    /* Respeta a usuarios con sensibilidad al movimiento */
     @media (prefers-reduced-motion: reduce) {
-      .spinner { animation-duration: 2s; }
+      .spinner { animation-duration: 1.8s; }
     }
   </style>
 
   <script>
-    // Redirigir tras el delay (ajusta el número de ms a tu gusto)
+    // Redirigir tras el delay (ajusta los ms si quieres)
     setTimeout(function () {
       window.location.replace(${JSON.stringify(destination.toString())});
-    }, 1500);
+    }, 1200);
   </script>
 </head>
 <body>
-  <div class="container">
-    <div class="spinner" aria-hidden="true"></div>
-    <h1 class="title">${displayTitle}</h1>
-    <p class="subtitle">Redirigiendo al reproductor…</p>
-  </div>
+  <div class="spinner" role="status" aria-label="Cargando"></div>
 </body>
 </html>`;
 
-  // ── 6. Devolver respuesta con caché corta ───────────────────────────
+  // ── 6. Devolver respuesta (sin noindex para permitir favicon a Google) ─
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=300', // 5 min de caché
-      'X-Robots-Tag': 'noindex, nofollow',
+      'Cache-Control': 'public, max-age=300',
+      // ❌ Sin 'X-Robots-Tag': noindex
     },
   });
 }
