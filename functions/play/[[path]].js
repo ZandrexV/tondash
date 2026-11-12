@@ -1,8 +1,12 @@
 // functions/play/[[path]].js
-// Rutas (solo embebidas vía iframe):
-//   GET  /play/movie/{tmdb_id|tt_id}                 → captcha + backdrop
-//   GET  /play/tv/{tmdb_id|tt_id}/{temp}/{ep}        → captcha + backdrop
-//   POST /play/...                                   → verifica y devuelve { url }
+// Comportamiento:
+//   - Solo accesible si se embebe (Sec-Fetch-Dest: iframe)
+//   - Acepta TMDB ID (numérico) o IMDB ID (ttXXXXXXX)
+//   - Pide captcha la primera vez, luego recuerda al usuario con cookie firmada
+//   - Sin ads
+
+const PASS_COOKIE = 'captcha_pass';
+const PASS_TTL = 60 * 60 * 24; // 24 horas
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -15,7 +19,7 @@ export async function onRequest({ request, env }) {
     });
   }
 
-  // ---------- Validación de ruta (TMDB o IMDB) ----------
+  // ---------- Validación de ruta ----------
   const m = url.pathname.match(
     /^\/play\/(movie|tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?$/
   );
@@ -47,33 +51,60 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  // ---------- GET: página intermedia ----------
+  // ---------- GET ----------
   if (request.method === 'GET') {
+    const hasValidPass = await hasPass(request, env);
+
+    // Si ya pasó el captcha recientemente → redirigir directo
+    if (hasValidPass) {
+      const redirectUrl = await generateLink(env, type, id, s, e);
+      if (!redirectUrl) {
+        return new Response(renderHelp(env), {
+          status: 502,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      }
+      return new Response(null, {
+        status: 302,
+        headers: { Location: redirectUrl, 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // Si no, mostrar página con captcha + backdrop
     const backdrop = await getBackdrop(env, type, id);
     return new Response(renderPage(env, type, id, s, e, backdrop), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   }
 
-  // ---------- POST: verificar Turnstile y generar enlace ----------
+  // ---------- POST ----------
   if (request.method === 'POST') {
-    const body = await request.json().catch(() => null);
-    const token = body?.token;
-    if (!token) return json({ error: 'Token faltante' }, 400);
+    const alreadyPassed = await hasPass(request, env);
 
-    const ok = await verifyTurnstile(env, token, request);
+    let ok = alreadyPassed;
+    if (!ok) {
+      const body = await request.json().catch(() => null);
+      const token = body?.token;
+      if (!token) return json({ error: 'Token faltante' }, 400);
+      ok = await verifyTurnstile(env, token, request);
+    }
     if (!ok) return json({ error: 'Captcha inválido' }, 403);
 
-    const target = `${env.PLAYER_URL}/link/${type}/${id}${
-      s ? `/${s}/${e}` : ''
-    }`;
-    const r = await fetch(target, {
-      headers: { 'X-Api-Key': env.LINK_API_KEY },
-    });
-    const d = await r.json().catch(() => null);
-    if (!d || !d.success) return json({ error: 'Error generando enlace' }, 502);
+    const redirectUrl = await generateLink(env, type, id, s, e);
+    if (!redirectUrl) return json({ error: 'Error generando enlace' }, 502);
 
-    return json({ url: d.url });
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    if (!alreadyPassed) {
+      const passValue = await createPassCookie(getSecret(env));
+      headers.append(
+        'Set-Cookie',
+        `${PASS_COOKIE}=${passValue}; Max-Age=${PASS_TTL}; Path=/; HttpOnly; Secure; SameSite=None`
+      );
+    }
+    return new Response(JSON.stringify({ url: redirectUrl }), {
+      status: 200,
+      headers,
+    });
   }
 
   return new Response('Method Not Allowed', { status: 405 });
@@ -84,15 +115,9 @@ export async function onRequest({ request, env }) {
 function isDirectNavigation(request, url) {
   const dest = request.headers.get('Sec-Fetch-Dest');
   const referer = request.headers.get('Referer');
-
-  // iframe → embed permitido
   if (dest === 'iframe') return false;
-  // document → navegación directa del browser → bloquear
   if (dest === 'document') return true;
-  // otros dest (empty = fetch, image, etc.) → no es navegación, dejar pasar
   if (dest) return false;
-
-  // Fallback para browsers sin Sec-Fetch-*
   if (!referer) return true;
   try {
     return new URL(referer).origin === url.origin;
@@ -101,7 +126,97 @@ function isDirectNavigation(request, url) {
   }
 }
 
-/* ---------- Helpers ---------- */
+/* ---------- Cookie firmada (HMAC-SHA256) ---------- */
+
+function getSecret(env) {
+  return env.PASS_SECRET || env.TURNSTILE_SECRET_KEY;
+}
+
+function getCookie(request, name) {
+  const cookie = request.headers.get('Cookie');
+  if (!cookie) return null;
+  const match = cookie.match(
+    new RegExp('(?:^|;\\s*)' + name + '=([^;]+)')
+  );
+  return match ? match[1] : null;
+}
+
+function bytesToHex(bytes) {
+  let hex = '';
+  for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+  return hex;
+}
+
+function hexToBytes(hex) {
+  if (typeof hex !== 'string' || hex.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = parseInt(hex.substr(i * 2, 2), 16);
+    if (Number.isNaN(byte)) return null;
+    bytes[i] = byte;
+  }
+  return bytes;
+}
+
+async function hmacSign(secret, payload) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(payload)
+  );
+  return bytesToHex(new Uint8Array(sig));
+}
+
+async function createPassCookie(secret) {
+  const expiry = Math.floor(Date.now() / 1000) + PASS_TTL;
+  const payload = `v1:${expiry}`;
+  const sig = await hmacSign(secret, payload);
+  return `${payload}:${sig}`;
+}
+
+async function verifyPassCookie(value, secret) {
+  if (!secret || typeof value !== 'string') return false;
+  const parts = value.split(':');
+  if (parts.length !== 3) return false;
+  const [version, expiryStr, sigHex] = parts;
+  if (version !== 'v1') return false;
+
+  const expiry = parseInt(expiryStr, 10);
+  if (!Number.isFinite(expiry)) return false;
+  if (Math.floor(Date.now() / 1000) > expiry) return false;
+
+  const sigBytes = hexToBytes(sigHex);
+  if (!sigBytes) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  return crypto.subtle.verify(
+    'HMAC',
+    key,
+    sigBytes,
+    new TextEncoder().encode(`${version}:${expiryStr}`)
+  );
+}
+
+async function hasPass(request, env) {
+  const cookie = getCookie(request, PASS_COOKIE);
+  if (!cookie) return false;
+  return verifyPassCookie(cookie, getSecret(env));
+}
+
+/* ---------- Helpers de red ---------- */
 
 async function resolveImdb(env, imdbId, type) {
   try {
@@ -136,6 +251,22 @@ async function getBackdrop(env, type, id) {
   }
 }
 
+async function generateLink(env, type, id, s, e) {
+  try {
+    const target = `${env.PLAYER_URL}/link/${type}/${id}${
+      s ? `/${s}/${e}` : ''
+    }`;
+    const r = await fetch(target, {
+      headers: { 'X-Api-Key': env.LINK_API_KEY },
+    });
+    const d = await r.json().catch(() => null);
+    if (!d || !d.success) return null;
+    return d.url;
+  } catch {
+    return null;
+  }
+}
+
 async function verifyTurnstile(env, token, request) {
   const form = new URLSearchParams({
     secret: env.TURNSTILE_SECRET_KEY,
@@ -163,7 +294,7 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML: página de captcha (comprimida para móvil) ---------- */
+/* ---------- HTML: página de captcha ---------- */
 
 function renderPage(env, type, id, s, e, backdrop) {
   const bg = backdrop
@@ -208,7 +339,6 @@ function renderPage(env, type, id, s, e, backdrop) {
   #msg{font-size:.95rem;opacity:.85;margin-top:.75rem}
   .captcha-wrap{margin-top:1.25rem;display:flex;justify-content:center}
 
-  /* ---------- Compacto: iframe móvil / viewport chico ---------- */
   @media (max-width:480px), (max-height:500px){
     body{padding:.5rem}
     .card{padding:1rem .75rem;border-radius:10px;max-width:100%}
@@ -217,8 +347,6 @@ function renderPage(env, type, id, s, e, backdrop) {
     #msg{font-size:.72rem;margin-top:.35rem}
     .captcha-wrap{margin-top:.6rem;transform:scale(.82);transform-origin:center}
   }
-
-  /* ---------- Extra compacto: iframes muy chicos ---------- */
   @media (max-width:320px), (max-height:340px){
     body{padding:.35rem}
     .card{padding:.75rem .5rem;border-radius:8px}
@@ -272,7 +400,7 @@ function renderPage(env, type, id, s, e, backdrop) {
 </html>`;
 }
 
-/* ---------- HTML: página 404 (con IMDB) ---------- */
+/* ---------- HTML: 404 ---------- */
 
 function renderHelp(env) {
   return `<!doctype html>
@@ -320,7 +448,6 @@ function renderHelp(env) {
     font-size:.82rem;color:#7ee2ff;word-break:break-all;
   }
   .ep .desc{font-size:.74rem;opacity:.7}
-
   @media (max-width:480px), (max-height:500px){
     body{padding:.5rem}
     .card{padding:1rem .85rem;border-radius:10px;max-width:100%}
@@ -350,7 +477,6 @@ function renderHelp(env) {
   <div class="code">404</div>
   <h1>Ruta no encontrada</h1>
   <p class="sub">La URL no corresponde a ningún reproductor.</p>
-
   <div class="endpoints">
     <div class="ep">
       <span class="label">Película · TMDB</span>
@@ -378,7 +504,7 @@ function renderHelp(env) {
 </html>`;
 }
 
-/* ---------- HTML: página de bloqueo (acceso directo) ---------- */
+/* ---------- HTML: 403 bloqueado ---------- */
 
 function renderBlocked() {
   return `<!doctype html>
@@ -410,7 +536,6 @@ function renderBlocked() {
   }
   h1{font-size:1rem;margin:.6rem 0 .3rem;font-weight:600}
   p{font-size:.85rem;opacity:.7;margin:0;line-height:1.5}
-
   @media (max-width:480px), (max-height:500px){
     body{padding:.5rem}
     .card{padding:1.25rem 1rem;border-radius:10px}
