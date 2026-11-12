@@ -104,14 +104,14 @@ export async function onRequest(context) {
 <body>
   <div class="spinner" role="status" aria-label="Cargando"></div>
 
-  <!-- Turnstile: interaction-only = invisible salvo que requiera interacción -->
-  <div id="turnstile-container"
-       class="cf-turnstile"
-       data-sitekey="${siteKey}"
-       data-appearance="interaction-only"
-       data-callback="onTurnstileSuccess"
-       data-error-callback="onTurnstileError">
-  </div>
+<!-- Turnstile: interaction-only = invisible salvo que requiera interacción -->
+<div id="turnstile-container"
+     class="cf-turnstile"
+     data-sitekey="${siteKey}"
+     data-appearance="interaction-only"
+     data-callback="onTurnstileSuccess"
+     data-error-callback="onTurnstileError">
+</div>
 
   <script>
     const payload = {
