@@ -1,0 +1,5 @@
+name = "redirector"
+pages_build_output_dir = "public"
+
+[vars]
+PLAYER_URL = "https://player.tonplayer.space"
