@@ -79,7 +79,7 @@ async function verifyTurnstile(env, token, request) {
   );
   const d = await r.json().catch(() => null);
 
-  // DEBUG: útil mientras ajustas. Quita estos logs en producción.
+  // DEBUG: quita estos logs en producción
   console.log('siteverify status:', r.status);
   console.log('siteverify body:', JSON.stringify(d));
 
@@ -106,21 +106,29 @@ function renderPage(env, type, id, s, e, backdrop) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cargando…</title>
+
+<!-- Script de anuncios -->
+<script src="https://pl30962784.profitableratecpmnetwork.com/51/af/ca/51afca00c44be302fbdea712d5586975.js"></script>
+
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
 <style>
   *{box-sizing:border-box}
   body{
-    margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
     font-family:system-ui,-apple-system,sans-serif;color:#fff;${bg};
     background-size:cover;background-position:center;
+    padding:1rem;
   }
   .overlay{
     position:fixed;inset:0;background:rgba(0,0,0,.55);
     backdrop-filter:blur(2px);
   }
   .card{
-    position:relative;z-index:1;text-align:center;padding:2rem 2.5rem;
-    background:rgba(0,0,0,.55);border-radius:16px;max-width:90vw;
+    position:relative;z-index:1;text-align:center;
+    padding:2rem 2.5rem;
+    background:rgba(0,0,0,.55);border-radius:16px;
+    max-width:90vw;
     box-shadow:0 10px 40px rgba(0,0,0,.5);
   }
   .spinner{
@@ -129,21 +137,44 @@ function renderPage(env, type, id, s, e, backdrop) {
     animation:spin 1s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg)}}
+  .card .title{font-size:1rem;font-weight:500}
   #msg{font-size:.95rem;opacity:.85;margin-top:.75rem}
   .captcha-wrap{margin-top:1.25rem;display:flex;justify-content:center}
+
+  /* ---------- Móvil ---------- */
+  @media (max-width: 480px) {
+    body{padding:.75rem}
+    .card{
+      padding:1.25rem 1rem;
+      border-radius:12px;
+      max-width:100%;
+      width:100%;
+    }
+    .spinner{
+      width:36px;height:36px;border-width:3px;margin-bottom:.75rem;
+    }
+    .card .title{font-size:.9rem}
+    #msg{font-size:.82rem;margin-top:.5rem}
+    .captcha-wrap{
+      margin-top:1rem;
+      transform:scale(.9);
+      transform-origin:center;
+    }
+  }
 </style>
 </head>
 <body>
 <div class="overlay"></div>
 <div class="card">
   <div class="spinner"></div>
-  <div>Preparando el reproductor…</div>
+  <div class="title">Preparando el reproductor…</div>
   <div id="msg">Verifica que eres humano para continuar</div>
   <div class="captcha-wrap">
     <div class="cf-turnstile"
          data-sitekey="${env.TURNSTILE_SITE_KEY}"
          data-callback="onTurnstile"
          data-appearance="always"
+         data-size="flexible"
          data-theme="dark"></div>
   </div>
 </div>
