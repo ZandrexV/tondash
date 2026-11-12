@@ -1,16 +1,25 @@
 // functions/play/[[path]].js
-// Rutas soportadas:
-//   GET  /play/movie/{tmdb_id}                 → página con backdrop + captcha
-//   GET  /play/tv/{tmdb_id}/{temporada}/{ep}   → página con backdrop + captcha
-//   POST /play/...                             → verifica captcha y devuelve { url }
+// Rutas (solo embebidas vía iframe):
+//   GET  /play/movie/{tmdb_id|tt_id}                 → captcha + backdrop
+//   GET  /play/tv/{tmdb_id|tt_id}/{temp}/{ep}        → captcha + backdrop
+//   POST /play/...                                   → verifica y devuelve { url }
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
+
+  // ---------- Bloqueo de acceso directo ----------
+  if (request.method === 'GET' && isDirectNavigation(request, url)) {
+    return new Response(renderBlocked(), {
+      status: 403,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  }
+
+  // ---------- Validación de ruta (TMDB o IMDB) ----------
   const m = url.pathname.match(
-    /^\/play\/(movie|tv)\/(\d+)(?:\/(\d+)\/(\d+))?$/
+    /^\/play\/(movie|tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?$/
   );
 
-  // ---------- URL inválida: página de ayuda ----------
   if (!m) {
     if (request.method === 'GET') {
       return new Response(renderHelp(env), {
@@ -21,9 +30,24 @@ export async function onRequest({ request, env }) {
     return new Response('Not found', { status: 404 });
   }
 
-  const [, type, id, s, e] = m;
+  const [, type, rawId, s, e] = m;
 
-  // ---------- GET: página intermedia con backdrop + captcha ----------
+  // ---------- Resolver IMDB → TMDB ----------
+  let id = rawId;
+  if (rawId.startsWith('tt')) {
+    id = await resolveImdb(env, rawId, type);
+    if (!id) {
+      if (request.method === 'GET') {
+        return new Response(renderHelp(env), {
+          status: 404,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      }
+      return json({ error: 'ID IMDB no encontrado en TMDB' }, 404);
+    }
+  }
+
+  // ---------- GET: página intermedia ----------
   if (request.method === 'GET') {
     const backdrop = await getBackdrop(env, type, id);
     return new Response(renderPage(env, type, id, s, e, backdrop), {
@@ -55,7 +79,44 @@ export async function onRequest({ request, env }) {
   return new Response('Method Not Allowed', { status: 405 });
 }
 
+/* ---------- Detección de acceso directo vs embed ---------- */
+
+function isDirectNavigation(request, url) {
+  const dest = request.headers.get('Sec-Fetch-Dest');
+  const referer = request.headers.get('Referer');
+
+  // iframe → embed permitido
+  if (dest === 'iframe') return false;
+  // document → navegación directa del browser → bloquear
+  if (dest === 'document') return true;
+  // otros dest (empty = fetch, image, etc.) → no es navegación, dejar pasar
+  if (dest) return false;
+
+  // Fallback para browsers sin Sec-Fetch-*
+  if (!referer) return true;
+  try {
+    return new URL(referer).origin === url.origin;
+  } catch {
+    return true;
+  }
+}
+
 /* ---------- Helpers ---------- */
+
+async function resolveImdb(env, imdbId, type) {
+  try {
+    const r = await fetch(
+      `https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${env.TMDB_API_KEY}`
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    const list = type === 'movie' ? d.movie_results : d.tv_results;
+    if (!list || !list.length) return null;
+    return String(list[0].id);
+  } catch {
+    return null;
+  }
+}
 
 async function getBackdrop(env, type, id) {
   try {
@@ -89,7 +150,6 @@ async function verifyTurnstile(env, token, request) {
   );
   const d = await r.json().catch(() => null);
 
-  // DEBUG: quita estos logs en producción
   console.log('siteverify status:', r.status);
   console.log('siteverify body:', JSON.stringify(d));
 
@@ -103,7 +163,7 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML: página de captcha ---------- */
+/* ---------- HTML: página de captcha (comprimida para móvil) ---------- */
 
 function renderPage(env, type, id, s, e, backdrop) {
   const bg = backdrop
@@ -116,16 +176,13 @@ function renderPage(env, type, id, s, e, backdrop) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cargando…</title>
-
-<!-- Script de anuncios -->
-<script src="https://pl30962784.profitableratecpmnetwork.com/51/af/ca/51afca00c44be302fbdea712d5586975.js"></script>
-
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-
 <style>
   *{box-sizing:border-box}
+  html,body{height:100%}
   body{
-    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    margin:0;min-height:100%;
+    display:flex;align-items:center;justify-content:center;
     font-family:system-ui,-apple-system,sans-serif;color:#fff;${bg};
     background-size:cover;background-position:center;
     padding:1rem;
@@ -147,29 +204,28 @@ function renderPage(env, type, id, s, e, backdrop) {
     animation:spin 1s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg)}}
-  .card .title{font-size:1rem;font-weight:500}
+  .title{font-size:1rem;font-weight:500}
   #msg{font-size:.95rem;opacity:.85;margin-top:.75rem}
   .captcha-wrap{margin-top:1.25rem;display:flex;justify-content:center}
 
-  /* ---------- Móvil ---------- */
-  @media (max-width: 480px) {
-    body{padding:.75rem}
-    .card{
-      padding:1.25rem 1rem;
-      border-radius:12px;
-      max-width:100%;
-      width:100%;
-    }
-    .spinner{
-      width:36px;height:36px;border-width:3px;margin-bottom:.75rem;
-    }
-    .card .title{font-size:.9rem}
-    #msg{font-size:.82rem;margin-top:.5rem}
-    .captcha-wrap{
-      margin-top:1rem;
-      transform:scale(.9);
-      transform-origin:center;
-    }
+  /* ---------- Compacto: iframe móvil / viewport chico ---------- */
+  @media (max-width:480px), (max-height:500px){
+    body{padding:.5rem}
+    .card{padding:1rem .75rem;border-radius:10px;max-width:100%}
+    .spinner{width:28px;height:28px;border-width:2px;margin-bottom:.5rem}
+    .title{font-size:.82rem}
+    #msg{font-size:.72rem;margin-top:.35rem}
+    .captcha-wrap{margin-top:.6rem;transform:scale(.82);transform-origin:center}
+  }
+
+  /* ---------- Extra compacto: iframes muy chicos ---------- */
+  @media (max-width:320px), (max-height:340px){
+    body{padding:.35rem}
+    .card{padding:.75rem .5rem;border-radius:8px}
+    .spinner{width:22px;height:22px;border-width:2px;margin-bottom:.35rem}
+    .title{font-size:.75rem}
+    #msg{font-size:.68rem;margin-top:.25rem}
+    .captcha-wrap{margin-top:.4rem;transform:scale(.72)}
   }
 </style>
 </head>
@@ -216,7 +272,7 @@ function renderPage(env, type, id, s, e, backdrop) {
 </html>`;
 }
 
-/* ---------- HTML: página de ayuda / 404 ---------- */
+/* ---------- HTML: página 404 (con IMDB) ---------- */
 
 function renderHelp(env) {
   return `<!doctype html>
@@ -225,69 +281,67 @@ function renderHelp(env) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ruta no encontrada</title>
-
-<!-- Script de anuncios -->
-<script src="https://pl30962784.profitableratecpmnetwork.com/51/af/ca/51afca00c44be302fbdea712d5586975.js"></script>
-
 <style>
   *{box-sizing:border-box}
+  html,body{height:100%}
   body{
-    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    margin:0;min-height:100%;
+    display:flex;align-items:center;justify-content:center;
     font-family:system-ui,-apple-system,sans-serif;color:#fff;
     background:#0b0b0b;padding:1rem;
   }
   .card{
-    text-align:center;
-    padding:2.5rem 2.5rem;
+    text-align:center;padding:2rem 2rem;
     background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.08);
-    border-radius:16px;
-    max-width:640px;width:100%;
+    border-radius:16px;max-width:520px;width:100%;
     box-shadow:0 10px 40px rgba(0,0,0,.5);
   }
   .code{
-    font-size:3rem;font-weight:700;line-height:1;margin-bottom:.5rem;
+    font-size:2.5rem;font-weight:700;line-height:1;margin-bottom:.4rem;
     background:linear-gradient(135deg,#ff4d4d,#ff9a3c);
     -webkit-background-clip:text;background-clip:text;color:transparent;
   }
-  h1{font-size:1.15rem;font-weight:600;margin:0 0 .35rem}
-  .sub{font-size:.9rem;opacity:.7;margin:0 0 1.5rem}
-  .endpoints{text-align:left;display:grid;gap:.6rem}
+  h1{font-size:1.05rem;font-weight:600;margin:0 0 .3rem}
+  .sub{font-size:.85rem;opacity:.7;margin:0 0 1.2rem}
+  .endpoints{text-align:left;display:grid;gap:.5rem}
   .ep{
-    display:flex;flex-direction:column;gap:.35rem;
-    padding:.85rem 1rem;border-radius:10px;
+    display:flex;flex-direction:column;gap:.3rem;
+    padding:.7rem .85rem;border-radius:10px;
     background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.06);
   }
   .ep .label{
-    font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+    font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
     opacity:.55;font-weight:600;
   }
   .ep code{
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:.86rem;color:#7ee2ff;word-break:break-all;
+    font-size:.82rem;color:#7ee2ff;word-break:break-all;
   }
-  .ep .desc{font-size:.8rem;opacity:.7}
-  .btn{
-    display:inline-block;margin-top:1.5rem;
-    padding:.65rem 1.25rem;border-radius:10px;
-    background:#fff;color:#111;text-decoration:none;
-    font-size:.9rem;font-weight:600;
-    transition:transform .15s ease, opacity .15s ease;
-  }
-  .btn:hover{transform:translateY(-1px);opacity:.9}
+  .ep .desc{font-size:.74rem;opacity:.7}
 
-  /* ---------- Móvil ---------- */
-  @media (max-width: 480px) {
-    body{padding:.75rem}
-    .card{padding:1.5rem 1rem;border-radius:12px}
-    .code{font-size:2.4rem}
-    h1{font-size:1rem}
-    .sub{font-size:.82rem;margin-bottom:1.1rem}
-    .ep{padding:.7rem .85rem}
-    .ep code{font-size:.78rem}
-    .ep .desc{font-size:.74rem}
-    .btn{margin-top:1.1rem;padding:.6rem 1rem;font-size:.85rem}
+  @media (max-width:480px), (max-height:500px){
+    body{padding:.5rem}
+    .card{padding:1rem .85rem;border-radius:10px;max-width:100%}
+    .code{font-size:2rem}
+    h1{font-size:.92rem}
+    .sub{font-size:.75rem;margin-bottom:.8rem}
+    .ep{padding:.55rem .7rem}
+    .ep code{font-size:.74rem}
+    .ep .desc{font-size:.68rem}
+  }
+  @media (max-width:320px), (max-height:340px){
+    body{padding:.35rem}
+    .card{padding:.7rem .5rem;border-radius:8px}
+    .code{font-size:1.6rem}
+    h1{font-size:.85rem}
+    .sub{font-size:.7rem;margin-bottom:.6rem}
+    .endpoints{gap:.35rem}
+    .ep{padding:.4rem .55rem}
+    .ep .label{font-size:.6rem}
+    .ep code{font-size:.68rem}
+    .ep .desc{font-size:.62rem}
   }
 </style>
 </head>
@@ -295,22 +349,82 @@ function renderHelp(env) {
 <div class="card">
   <div class="code">404</div>
   <h1>Ruta no encontrada</h1>
-  <p class="sub">La URL que ingresaste no corresponde a ningún reproductor. Estos son los endpoints disponibles:</p>
+  <p class="sub">La URL no corresponde a ningún reproductor.</p>
 
   <div class="endpoints">
     <div class="ep">
-      <span class="label">Película</span>
+      <span class="label">Película · TMDB</span>
       <code>/play/movie/{tmdb_id}</code>
-      <span class="desc">Ejemplo: <code>/play/movie/603</code></span>
+      <span class="desc">Ej: <code>/play/movie/603</code></span>
     </div>
     <div class="ep">
-      <span class="label">Serie</span>
-      <code>/play/tv/{tmdb_id}/{temporada}/{episodio}</code>
-      <span class="desc">Ejemplo: <code>/play/tv/1396/2/5</code></span>
+      <span class="label">Película · IMDB</span>
+      <code>/play/movie/{tt_id}</code>
+      <span class="desc">Ej: <code>/play/movie/tt0137523</code></span>
+    </div>
+    <div class="ep">
+      <span class="label">Serie · TMDB</span>
+      <code>/play/tv/{tmdb_id}/{temp}/{ep}</code>
+      <span class="desc">Ej: <code>/play/tv/1396/2/5</code></span>
+    </div>
+    <div class="ep">
+      <span class="label">Serie · IMDB</span>
+      <code>/play/tv/{tt_id}/{temp}/{ep}</code>
+      <span class="desc">Ej: <code>/play/tv/tt0903747/1/1</code></span>
     </div>
   </div>
+</div>
+</body>
+</html>`;
+}
 
-  <a class="btn" href="/">Volver al inicio</a>
+/* ---------- HTML: página de bloqueo (acceso directo) ---------- */
+
+function renderBlocked() {
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acceso restringido</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;min-height:100%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:system-ui,-apple-system,sans-serif;color:#fff;
+    background:#0b0b0b;padding:1rem;
+  }
+  .card{
+    text-align:center;padding:2rem;max-width:380px;width:100%;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  .code{
+    font-size:2.5rem;font-weight:700;line-height:1;
+    background:linear-gradient(135deg,#ff4d4d,#ff9a3c);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  h1{font-size:1rem;margin:.6rem 0 .3rem;font-weight:600}
+  p{font-size:.85rem;opacity:.7;margin:0;line-height:1.5}
+
+  @media (max-width:480px), (max-height:500px){
+    body{padding:.5rem}
+    .card{padding:1.25rem 1rem;border-radius:10px}
+    .code{font-size:2rem}
+    h1{font-size:.92rem}
+    p{font-size:.78rem}
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="code">403</div>
+  <h1>Acceso restringido</h1>
+  <p>Esta página solo funciona cuando se embebe en otra web.</p>
 </div>
 </body>
 </html>`;
