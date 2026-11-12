@@ -1,10 +1,4 @@
 {
-  "name": "tonplayer-redirector",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo 'no build needed'"
-  },
   "dependencies": {
     "@tsndr/cloudflare-worker-jwt": "^2.5.0"
   }
