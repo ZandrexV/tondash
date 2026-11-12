@@ -1,6 +1,4 @@
 // functions/play/[[path]].js
-// Redirector con spinner violeta, backdrop TMDB y Turnstile invisible.
-
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const pathParts = url.pathname.split('/').filter(Boolean);
@@ -24,7 +22,6 @@ export async function onRequest(context) {
     return new Response('ID de TMDB inválido', { status: 400 });
   }
 
-  // ── Datos de TMDB para el backdrop ──────────────────────────────────
   const tmdbApiKey = context.env.TMDB_API_KEY;
   let backdropUrl = '';
   let displayTitle = 'Cargando…';
@@ -49,7 +46,7 @@ export async function onRequest(context) {
     }
   }
 
-  const siteKey = context.env.TURNSTILE_SITE_KEY; // Público, va en el HTML
+  const siteKey = context.env.TURNSTILE_SITE_KEY;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -60,7 +57,6 @@ export async function onRequest(context) {
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
-  <meta property="og:title" content="${displayTitle}">
   ${backdropUrl ? `<meta property="og:image" content="${backdropUrl}">` : ''}
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
@@ -95,18 +91,26 @@ export async function onRequest(context) {
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* Turnstile se oculta solo, no usar display:none */
+    #turnstile-container {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+    }
   </style>
 </head>
 <body>
   <div class="spinner" role="status" aria-label="Cargando"></div>
 
-  <!-- Widget invisible de Turnstile -->
-  <div class="cf-turnstile"
+  <!-- Turnstile: interaction-only = invisible salvo que requiera interacción -->
+  <div id="turnstile-container"
+       class="cf-turnstile"
        data-sitekey="${siteKey}"
-       data-size="invisible"
+       data-appearance="interaction-only"
        data-callback="onTurnstileSuccess"
-       data-error-callback="onTurnstileError"
-       style="display: none;">
+       data-error-callback="onTurnstileError">
   </div>
 
   <script>
@@ -117,33 +121,42 @@ export async function onRequest(context) {
       episode: ${JSON.stringify(episode || null)}
     };
 
+    let redirected = false;
+
+    function doRedirect(url) {
+      if (redirected) return;
+      redirected = true;
+      window.location.replace(url);
+    }
+
     function onTurnstileSuccess(token) {
-      // Enviar el token al endpoint de verificación del servidor
       fetch('/api/verify-turnstile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...payload, turnstileToken: token })
       })
-      .then(res => res.json())
-      .then(data => {
+      .then(async res => {
+        const data = await res.json().catch(() => ({}));
         if (data.redirect) {
-          window.location.replace(data.redirect);
+          doRedirect(data.redirect);
         } else {
-          console.error('Verificación fallida:', data);
-          // Redirigir de todos modos como fallback (o mostrar error)
-          // window.location.replace('https://player.tonplayer.space/...'); 
+          console.error('Verificación fallida:', res.status, data);
         }
       })
-      .catch(err => {
-        console.error('Error al verificar:', err);
-        // Fallback: redirigir sin token si la verificación falla
-      });
+      .catch(err => console.error('Error en verify:', err));
     }
 
     function onTurnstileError(code) {
       console.error('Turnstile error:', code);
-      // Fallback: redirigir sin token
     }
+
+    // Fallback: si en 15s no se redirigió, ir al player sin token
+    // (quita este bloque si prefieres denegar el acceso en ese caso)
+    setTimeout(() => {
+      if (redirected) return;
+      console.warn('Fallback: Turnstile no respondió en 15s');
+      // doRedirect('https://player.tonplayer.space' + ...);
+    }, 15000);
   </script>
 </body>
 </html>`;
