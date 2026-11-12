@@ -9,7 +9,17 @@ export async function onRequest({ request, env }) {
   const m = url.pathname.match(
     /^\/play\/(movie|tv)\/(\d+)(?:\/(\d+)\/(\d+))?$/
   );
-  if (!m) return new Response('Not found', { status: 404 });
+
+  // ---------- URL inválida: página de ayuda ----------
+  if (!m) {
+    if (request.method === 'GET') {
+      return new Response(renderHelp(env), {
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    return new Response('Not found', { status: 404 });
+  }
 
   const [, type, id, s, e] = m;
 
@@ -93,7 +103,7 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML de la página intermedia ---------- */
+/* ---------- HTML: página de captcha ---------- */
 
 function renderPage(env, type, id, s, e, backdrop) {
   const bg = backdrop
@@ -202,6 +212,106 @@ function renderPage(env, type, id, s, e, backdrop) {
     }
   }
 </script>
+</body>
+</html>`;
+}
+
+/* ---------- HTML: página de ayuda / 404 ---------- */
+
+function renderHelp(env) {
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ruta no encontrada</title>
+
+<!-- Script de anuncios -->
+<script src="https://pl30962784.profitableratecpmnetwork.com/51/af/ca/51afca00c44be302fbdea712d5586975.js"></script>
+
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    font-family:system-ui,-apple-system,sans-serif;color:#fff;
+    background:#0b0b0b;padding:1rem;
+  }
+  .card{
+    text-align:center;
+    padding:2.5rem 2.5rem;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    max-width:640px;width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  .code{
+    font-size:3rem;font-weight:700;line-height:1;margin-bottom:.5rem;
+    background:linear-gradient(135deg,#ff4d4d,#ff9a3c);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  h1{font-size:1.15rem;font-weight:600;margin:0 0 .35rem}
+  .sub{font-size:.9rem;opacity:.7;margin:0 0 1.5rem}
+  .endpoints{text-align:left;display:grid;gap:.6rem}
+  .ep{
+    display:flex;flex-direction:column;gap:.35rem;
+    padding:.85rem 1rem;border-radius:10px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .ep .label{
+    font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+    opacity:.55;font-weight:600;
+  }
+  .ep code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.86rem;color:#7ee2ff;word-break:break-all;
+  }
+  .ep .desc{font-size:.8rem;opacity:.7}
+  .btn{
+    display:inline-block;margin-top:1.5rem;
+    padding:.65rem 1.25rem;border-radius:10px;
+    background:#fff;color:#111;text-decoration:none;
+    font-size:.9rem;font-weight:600;
+    transition:transform .15s ease, opacity .15s ease;
+  }
+  .btn:hover{transform:translateY(-1px);opacity:.9}
+
+  /* ---------- Móvil ---------- */
+  @media (max-width: 480px) {
+    body{padding:.75rem}
+    .card{padding:1.5rem 1rem;border-radius:12px}
+    .code{font-size:2.4rem}
+    h1{font-size:1rem}
+    .sub{font-size:.82rem;margin-bottom:1.1rem}
+    .ep{padding:.7rem .85rem}
+    .ep code{font-size:.78rem}
+    .ep .desc{font-size:.74rem}
+    .btn{margin-top:1.1rem;padding:.6rem 1rem;font-size:.85rem}
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="code">404</div>
+  <h1>Ruta no encontrada</h1>
+  <p class="sub">La URL que ingresaste no corresponde a ningún reproductor. Estos son los endpoints disponibles:</p>
+
+  <div class="endpoints">
+    <div class="ep">
+      <span class="label">Película</span>
+      <code>/play/movie/{tmdb_id}</code>
+      <span class="desc">Ejemplo: <code>/play/movie/603</code></span>
+    </div>
+    <div class="ep">
+      <span class="label">Serie</span>
+      <code>/play/tv/{tmdb_id}/{temporada}/{episodio}</code>
+      <span class="desc">Ejemplo: <code>/play/tv/1396/2/5</code></span>
+    </div>
+  </div>
+
+  <a class="btn" href="/">Volver al inicio</a>
+</div>
 </body>
 </html>`;
 }
