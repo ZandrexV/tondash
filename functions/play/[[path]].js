@@ -1,15 +1,36 @@
 // functions/play/[[path]].js
-// Comportamiento:
-//   - Solo accesible si se embebe (Sec-Fetch-Dest: iframe)
-//   - Acepta TMDB ID (numérico) o IMDB ID (ttXXXXXXX)
-//   - Pide captcha la primera vez, luego recuerda al usuario con cookie firmada
-//   - Sin ads
+// - Solo accesible embebido (Sec-Fetch-Dest: iframe)
+// - Acepta TMDB ID o IMDB ID (ttXXXXXXX)
+// - Captcha la primera vez, luego cookie HMAC
+// - El player se sirve dentro de un <iframe> propio para heredar fullscreen
 
 const PASS_COOKIE = 'captcha_pass';
-const PASS_TTL = 60 * 60 * 24; // 24 horas
+const PASS_TTL = 60 * 60 * 24; // 24h
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
+
+  // ---------- /embed: sirve el wrapper con el player ----------
+  if (url.pathname === '/embed') {
+    const src = url.searchParams.get('src');
+    if (!src) return new Response('Missing src', { status: 400 });
+
+    let parsed;
+    try { parsed = new URL(src); } catch {
+      return new Response('Bad src', { status: 400 });
+    }
+    const playerOrigin = new URL(env.PLAYER_URL).origin;
+    if (parsed.origin !== playerOrigin) {
+      return new Response('Forbidden origin', { status: 403 });
+    }
+
+    return new Response(renderEmbed(src), {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
 
   // ---------- Bloqueo de acceso directo ----------
   if (request.method === 'GET' && isDirectNavigation(request, url)) {
@@ -23,7 +44,6 @@ export async function onRequest({ request, env }) {
   const m = url.pathname.match(
     /^\/play\/(movie|tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?$/
   );
-
   if (!m) {
     if (request.method === 'GET') {
       return new Response(renderHelp(env), {
@@ -55,10 +75,9 @@ export async function onRequest({ request, env }) {
   if (request.method === 'GET') {
     const hasValidPass = await hasPass(request, env);
 
-    // Si ya pasó el captcha recientemente → redirigir directo
     if (hasValidPass) {
-      const redirectUrl = await generateLink(env, type, id, s, e);
-      if (!redirectUrl) {
+      const playerUrl = await generateLink(env, type, id, s, e);
+      if (!playerUrl) {
         return new Response(renderHelp(env), {
           status: 502,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -66,11 +85,13 @@ export async function onRequest({ request, env }) {
       }
       return new Response(null, {
         status: 302,
-        headers: { Location: redirectUrl, 'Cache-Control': 'no-store' },
+        headers: {
+          Location: `/embed?src=${encodeURIComponent(playerUrl)}`,
+          'Cache-Control': 'no-store',
+        },
       });
     }
 
-    // Si no, mostrar página con captcha + backdrop
     const backdrop = await getBackdrop(env, type, id);
     return new Response(renderPage(env, type, id, s, e, backdrop), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -90,8 +111,8 @@ export async function onRequest({ request, env }) {
     }
     if (!ok) return json({ error: 'Captcha inválido' }, 403);
 
-    const redirectUrl = await generateLink(env, type, id, s, e);
-    if (!redirectUrl) return json({ error: 'Error generando enlace' }, 502);
+    const playerUrl = await generateLink(env, type, id, s, e);
+    if (!playerUrl) return json({ error: 'Error generando enlace' }, 502);
 
     const headers = new Headers({ 'Content-Type': 'application/json' });
     if (!alreadyPassed) {
@@ -101,10 +122,10 @@ export async function onRequest({ request, env }) {
         `${PASS_COOKIE}=${passValue}; Max-Age=${PASS_TTL}; Path=/; HttpOnly; Secure; SameSite=None`
       );
     }
-    return new Response(JSON.stringify({ url: redirectUrl }), {
-      status: 200,
-      headers,
-    });
+    return new Response(
+      JSON.stringify({ url: `/embed?src=${encodeURIComponent(playerUrl)}` }),
+      { status: 200, headers }
+    );
   }
 
   return new Response('Method Not Allowed', { status: 405 });
@@ -126,7 +147,7 @@ function isDirectNavigation(request, url) {
   }
 }
 
-/* ---------- Cookie firmada (HMAC-SHA256) ---------- */
+/* ---------- Cookie firmada ---------- */
 
 function getSecret(env) {
   return env.PASS_SECRET || env.TURNSTILE_SECRET_KEY;
@@ -135,9 +156,7 @@ function getSecret(env) {
 function getCookie(request, name) {
   const cookie = request.headers.get('Cookie');
   if (!cookie) return null;
-  const match = cookie.match(
-    new RegExp('(?:^|;\\s*)' + name + '=([^;]+)')
-  );
+  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
   return match ? match[1] : null;
 }
 
@@ -253,9 +272,7 @@ async function getBackdrop(env, type, id) {
 
 async function generateLink(env, type, id, s, e) {
   try {
-    const target = `${env.PLAYER_URL}/link/${type}/${id}${
-      s ? `/${s}/${e}` : ''
-    }`;
+    const target = `${env.PLAYER_URL}/link/${type}/${id}${s ? `/${s}/${e}` : ''}`;
     const r = await fetch(target, {
       headers: { 'X-Api-Key': env.LINK_API_KEY },
     });
@@ -280,10 +297,8 @@ async function verifyTurnstile(env, token, request) {
     { method: 'POST', body: form }
   );
   const d = await r.json().catch(() => null);
-
   console.log('siteverify status:', r.status);
   console.log('siteverify body:', JSON.stringify(d));
-
   return d?.success === true;
 }
 
@@ -292,6 +307,29 @@ function json(obj, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/* ---------- HTML: wrapper del player ---------- */
+
+function renderEmbed(src) {
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reproductor</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden}
+  iframe{display:block;width:100vw;height:100vh;border:0}
+</style>
+</head>
+<body>
+<iframe src="${src}"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write; web-share"
+        allowfullscreen
+        referrerpolicy="origin"></iframe>
+</body>
+</html>`;
 }
 
 /* ---------- HTML: página de captcha ---------- */
@@ -318,16 +356,11 @@ function renderPage(env, type, id, s, e, backdrop) {
     background-size:cover;background-position:center;
     padding:1rem;
   }
-  .overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.55);
-    backdrop-filter:blur(2px);
-  }
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
   .card{
     position:relative;z-index:1;text-align:center;
-    padding:2rem 2.5rem;
-    background:rgba(0,0,0,.55);border-radius:16px;
-    max-width:90vw;
-    box-shadow:0 10px 40px rgba(0,0,0,.5);
+    padding:2rem 2.5rem;background:rgba(0,0,0,.55);border-radius:16px;
+    max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.5);
   }
   .spinner{
     width:48px;height:48px;border:4px solid rgba(255,255,255,.25);
@@ -338,7 +371,6 @@ function renderPage(env, type, id, s, e, backdrop) {
   .title{font-size:1rem;font-weight:500}
   #msg{font-size:.95rem;opacity:.85;margin-top:.75rem}
   .captcha-wrap{margin-top:1.25rem;display:flex;justify-content:center}
-
   @media (max-width:480px), (max-height:500px){
     body{padding:.5rem}
     .card{padding:1rem .75rem;border-radius:10px;max-width:100%}
@@ -372,7 +404,6 @@ function renderPage(env, type, id, s, e, backdrop) {
          data-theme="dark"></div>
   </div>
 </div>
-
 <script>
   async function onTurnstile(token) {
     var msg = document.getElementById('msg');
@@ -439,10 +470,7 @@ function renderHelp(env) {
     background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.06);
   }
-  .ep .label{
-    font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
-    opacity:.55;font-weight:600;
-  }
+  .ep .label{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;opacity:.55;font-weight:600}
   .ep code{
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
     font-size:.82rem;color:#7ee2ff;word-break:break-all;
@@ -504,7 +532,7 @@ function renderHelp(env) {
 </html>`;
 }
 
-/* ---------- HTML: 403 bloqueado ---------- */
+/* ---------- HTML: 403 ---------- */
 
 function renderBlocked() {
   return `<!doctype html>
@@ -526,8 +554,7 @@ function renderBlocked() {
     text-align:center;padding:2rem;max-width:380px;width:100%;
     background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.08);
-    border-radius:16px;
-    box-shadow:0 10px 40px rgba(0,0,0,.5);
+    border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.5);
   }
   .code{
     font-size:2.5rem;font-weight:700;line-height:1;
