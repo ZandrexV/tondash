@@ -2,35 +2,13 @@
 // - Solo accesible embebido (Sec-Fetch-Dest: iframe)
 // - Acepta TMDB ID o IMDB ID (ttXXXXXXX)
 // - Captcha la primera vez, luego cookie HMAC
-// - El player se sirve dentro de un <iframe> propio para heredar fullscreen
+// - El player se sirve vía /embed (functions/embed.js) para heredar fullscreen
 
 const PASS_COOKIE = 'captcha_pass';
 const PASS_TTL = 60 * 60 * 24; // 24h
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
-
-  // ---------- /embed: sirve el wrapper con el player ----------
-  if (url.pathname === '/embed') {
-    const src = url.searchParams.get('src');
-    if (!src) return new Response('Missing src', { status: 400 });
-
-    let parsed;
-    try { parsed = new URL(src); } catch {
-      return new Response('Bad src', { status: 400 });
-    }
-    const playerOrigin = new URL(env.PLAYER_URL).origin;
-    if (parsed.origin !== playerOrigin) {
-      return new Response('Forbidden origin', { status: 403 });
-    }
-
-    return new Response(renderEmbed(src), {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-store',
-      },
-    });
-  }
 
   // ---------- Bloqueo de acceso directo ----------
   if (request.method === 'GET' && isDirectNavigation(request, url)) {
@@ -307,29 +285,6 @@ function json(obj, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-/* ---------- HTML: wrapper del player ---------- */
-
-function renderEmbed(src) {
-  return `<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reproductor</title>
-<style>
-  html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden}
-  iframe{display:block;width:100vw;height:100vh;border:0}
-</style>
-</head>
-<body>
-<iframe src="${src}"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write; web-share"
-        allowfullscreen
-        referrerpolicy="origin"></iframe>
-</body>
-</html>`;
 }
 
 /* ---------- HTML: página de captcha ---------- */
