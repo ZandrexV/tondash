@@ -1,18 +1,17 @@
 // functions/play/[[path]].js
-// - Solo accesible embebido (Sec-Fetch-Dest: iframe)
-// - Acepta TMDB ID o IMDB ID (ttXXXXXXX)
-// - Captcha la primera vez, luego cookie HMAC
-// - Pre-roll VAST propio con autoplay muted + botón de unmute
-// - El player se sirve vía /embed (functions/embed.js)
+// Flujo:
+//   1. GET sin cookie → página con captcha
+//   2. POST con token OK → Set-Cookie + devuelve { url: "/embed?src=..." }
+//   3. Client-side: oculta captcha, reproduce VAST
+//   4. Al terminar el ad (o skip/error/timeout) → location.replace(url)
 
 const PASS_COOKIE = 'captcha_pass';
 const PASS_TTL = 60 * 60 * 24; // 24h
-const VAST_URL = 'https://unfolded-uncle.com/d_mSFoz.dIGVNGv_ZcG/UP/re/mJ9BusZgUZljkQP/TOcezbNSDiEf4ZNvjVkCtXNpzuMc0HM_Tzgn3tM/wP'; // 👈 tu etiqueta VAST
+const VAST_URL = 'https://unfolded-uncle.com/d.miF/zddwGtN/vaZsGiUV/Gewmj9/uJZ/UYl/k/P/T_cczYN/D/EU4FNUjik-thN/zVMk0aMYTLge3YMPwT'; // 👈 tu etiqueta VAST
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
 
-  // ---------- Bloqueo de acceso directo ----------
   if (request.method === 'GET' && isDirectNavigation(request, url)) {
     return new Response(renderBlocked(), {
       status: 403,
@@ -20,7 +19,6 @@ export async function onRequest({ request, env }) {
     });
   }
 
-  // ---------- Validación de ruta ----------
   const m = url.pathname.match(
     /^\/play\/(movie|tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?$/
   );
@@ -36,7 +34,6 @@ export async function onRequest({ request, env }) {
 
   const [, type, rawId, s, e] = m;
 
-  // ---------- Resolver IMDB → TMDB ----------
   let id = rawId;
   if (rawId.startsWith('tt')) {
     id = await resolveImdb(env, rawId, type);
@@ -51,7 +48,6 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  // ---------- GET ----------
   if (request.method === 'GET') {
     const hasValidPass = await hasPass(request, env);
 
@@ -63,6 +59,7 @@ export async function onRequest({ request, env }) {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });
       }
+      // OJO: con cookie válida se salta captcha Y ad → 302 directo
       return new Response(null, {
         status: 302,
         headers: {
@@ -82,10 +79,8 @@ export async function onRequest({ request, env }) {
     });
   }
 
-  // ---------- POST ----------
   if (request.method === 'POST') {
     const alreadyPassed = await hasPass(request, env);
-
     let ok = alreadyPassed;
     if (!ok) {
       const body = await request.json().catch(() => null);
@@ -115,8 +110,7 @@ export async function onRequest({ request, env }) {
   return new Response('Method Not Allowed', { status: 405 });
 }
 
-/* ---------- Detección de acceso directo vs embed ---------- */
-
+/* ---------- Detección de acceso directo ---------- */
 function isDirectNavigation(request, url) {
   const dest = request.headers.get('Sec-Fetch-Dest');
   const referer = request.headers.get('Referer');
@@ -124,18 +118,11 @@ function isDirectNavigation(request, url) {
   if (dest === 'document') return true;
   if (dest) return false;
   if (!referer) return true;
-  try {
-    return new URL(referer).origin === url.origin;
-  } catch {
-    return true;
-  }
+  try { return new URL(referer).origin === url.origin; } catch { return true; }
 }
 
 /* ---------- Cookie firmada ---------- */
-
-function getSecret(env) {
-  return env.PASS_SECRET || env.TURNSTILE_SECRET_KEY;
-}
+function getSecret(env) { return env.PASS_SECRET || env.TURNSTILE_SECRET_KEY; }
 
 function getCookie(request, name) {
   const cookie = request.headers.get('Cookie');
@@ -163,17 +150,10 @@ function hexToBytes(hex) {
 
 async function hmacSign(secret, payload) {
   const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
   );
-  const sig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(payload)
-  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
   return bytesToHex(new Uint8Array(sig));
 }
 
@@ -190,25 +170,17 @@ async function verifyPassCookie(value, secret) {
   if (parts.length !== 3) return false;
   const [version, expiryStr, sigHex] = parts;
   if (version !== 'v1') return false;
-
   const expiry = parseInt(expiryStr, 10);
   if (!Number.isFinite(expiry)) return false;
   if (Math.floor(Date.now() / 1000) > expiry) return false;
-
   const sigBytes = hexToBytes(sigHex);
   if (!sigBytes) return false;
-
   const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify']
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
   );
   return crypto.subtle.verify(
-    'HMAC',
-    key,
-    sigBytes,
+    'HMAC', key, sigBytes,
     new TextEncoder().encode(`${version}:${expiryStr}`)
   );
 }
@@ -220,7 +192,6 @@ async function hasPass(request, env) {
 }
 
 /* ---------- Helpers de red ---------- */
-
 async function resolveImdb(env, imdbId, type) {
   try {
     const r = await fetch(
@@ -231,41 +202,30 @@ async function resolveImdb(env, imdbId, type) {
     const list = type === 'movie' ? d.movie_results : d.tv_results;
     if (!list || !list.length) return null;
     return String(list[0].id);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function getBackdrop(env, type, id) {
   try {
-    const endpoint =
-      type === 'movie'
-        ? `https://api.themoviedb.org/3/movie/${id}`
-        : `https://api.themoviedb.org/3/tv/${id}`;
-    const r = await fetch(
-      `${endpoint}?api_key=${env.TMDB_API_KEY}&language=es-ES`
-    );
+    const endpoint = type === 'movie'
+      ? `https://api.themoviedb.org/3/movie/${id}`
+      : `https://api.themoviedb.org/3/tv/${id}`;
+    const r = await fetch(`${endpoint}?api_key=${env.TMDB_API_KEY}&language=es-ES`);
     if (!r.ok) return null;
     const d = await r.json();
     if (!d.backdrop_path) return null;
     return `https://image.tmdb.org/t/p/w1280${d.backdrop_path}`;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function generateLink(env, type, id, s, e) {
   try {
     const target = `${env.PLAYER_URL}/link/${type}/${id}${s ? `/${s}/${e}` : ''}`;
-    const r = await fetch(target, {
-      headers: { 'X-Api-Key': env.LINK_API_KEY },
-    });
+    const r = await fetch(target, { headers: { 'X-Api-Key': env.LINK_API_KEY } });
     const d = await r.json().catch(() => null);
     if (!d || !d.success) return null;
     return d.url;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function verifyTurnstile(env, token, request) {
@@ -275,7 +235,6 @@ async function verifyTurnstile(env, token, request) {
   });
   const ip = request.headers.get('CF-Connecting-IP');
   if (ip) form.append('remoteip', ip);
-
   const r = await fetch(
     'https://challenges.cloudflare.com/turnstile/v0/siteverify',
     { method: 'POST', body: form }
@@ -293,12 +252,9 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML: página de captcha con pre-roll VAST (autoplay muted) ---------- */
-
+/* ---------- HTML: captcha primero, VAST después ---------- */
 function renderPage(env, type, id, s, e, backdrop) {
-  const bg = backdrop
-    ? `background-image:url('${backdrop}')`
-    : 'background:#0b0b0b';
+  const bg = backdrop ? `background-image:url('${backdrop}')` : 'background:#0b0b0b';
 
   return `<!doctype html>
 <html lang="es">
@@ -336,17 +292,19 @@ function renderPage(env, type, id, s, e, backdrop) {
   /* Anuncio */
   #ad-layer{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center}
   #ad-layer.hidden{display:none}
-  #ad-video{width:100%;height:100%;object-fit:contain;background:#000}
+  #ad-loading{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:.75rem;color:#fff;
+  }
+  #ad-loading .spinner{width:40px;height:40px;margin:0}
+  #ad-video{display:none;width:100%;height:100%;object-fit:contain;background:#000}
   #ad-unmute{
-    position:absolute;top:1rem;right:1rem;
-    display:flex;align-items:center;gap:.4rem;
-    padding:.5rem .9rem;border:0;border-radius:999px;
+    display:none;position:absolute;top:1rem;right:1rem;
+    align-items:center;gap:.4rem;padding:.5rem .9rem;border:0;border-radius:999px;
     background:rgba(255,255,255,.92);color:#111;
     font-weight:600;font-size:.85rem;cursor:pointer;
-    box-shadow:0 4px 16px rgba(0,0,0,.35);
-    font-family:inherit;z-index:10001;
+    box-shadow:0 4px 16px rgba(0,0,0,.35);font-family:inherit;z-index:10001;
   }
-  #ad-unmute:hover{background:#fff}
   #ad-unmute svg{width:16px;height:16px;flex-shrink:0}
   #ad-skip{
     position:absolute;bottom:1.25rem;right:1.25rem;padding:.5rem 1rem;
@@ -383,25 +341,9 @@ function renderPage(env, type, id, s, e, backdrop) {
 </head>
 <body>
 
-<!-- ========== Anuncio (pre-roll, autoplay muted) ========== -->
-<div id="ad-layer">
-  <video id="ad-video" playsinline autoplay muted preload="auto"></video>
-  <button id="ad-unmute" type="button" title="Activar sonido">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"></polygon>
-      <line x1="23" y1="9" x2="17" y2="15"></line>
-      <line x1="17" y1="9" x2="23" y2="15"></line>
-    </svg>
-    <span>Activar sonido</span>
-  </button>
-  <button id="ad-skip" type="button" hidden>Omitir</button>
-  <a id="ad-click" hidden target="_blank" rel="noopener noreferrer">Más info ›</a>
-</div>
-
-<!-- ========== Captcha ========== -->
+<!-- ========== Captcha (visible al inicio) ========== -->
 <div class="overlay"></div>
-<div class="card" id="captcha-card" style="display:none;">
+<div class="card" id="captcha-card">
   <div class="spinner"></div>
   <div class="title">Preparando el reproductor…</div>
   <div id="msg">Verifica que eres humano para continuar</div>
@@ -415,13 +357,33 @@ function renderPage(env, type, id, s, e, backdrop) {
   </div>
 </div>
 
+<!-- ========== Anuncio (oculto al inicio) ========== -->
+<div id="ad-layer" class="hidden">
+  <div id="ad-loading">
+    <div class="spinner"></div>
+    <div>Cargando…</div>
+  </div>
+  <video id="ad-video" playsinline muted preload="auto"></video>
+  <button id="ad-unmute" type="button" title="Activar sonido">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"></polygon>
+      <line x1="23" y1="9" x2="17" y2="15"></line>
+      <line x1="17" y1="9" x2="23" y2="15"></line>
+    </svg>
+    <span>Activar sonido</span>
+  </button>
+  <button id="ad-skip" type="button" hidden>Omitir</button>
+  <a id="ad-click" hidden target="_blank" rel="noopener noreferrer">Más info ›</a>
+</div>
+
 <script>
-  // ============================================================
-  // Reproductor VAST propio (InLine + Wrapper) - autoplay muted
-  // ============================================================
   var VAST_URL = ${JSON.stringify(VAST_URL)};
+  var AD_FETCH_TIMEOUT = 2000;   // ms para obtener el VAST
+  var AD_PLAY_GUARD    = 5000;   // ms para que el video empiece
 
   var adLayer    = document.getElementById('ad-layer');
+  var adLoading  = document.getElementById('ad-loading');
   var video      = document.getElementById('ad-video');
   var unmuteBtn  = document.getElementById('ad-unmute');
   var skipBtn    = document.getElementById('ad-skip');
@@ -431,6 +393,8 @@ function renderPage(env, type, id, s, e, backdrop) {
   var ad = null;
   var fired = { impression:false, start:false, q1:false, mid:false, q3:false, complete:false };
   var skipped = false;
+  var pendingPlayerUrl = null;
+  var reachedPlayer = false;
 
   function t(root, tag) {
     var el = root.querySelector(tag);
@@ -458,11 +422,7 @@ function renderPage(env, type, id, s, e, backdrop) {
 
   function fire(url) {
     if (!url) return;
-    try {
-      var img = new Image();
-      img.referrerPolicy = 'no-referrer';
-      img.src = url;
-    } catch (e) {}
+    try { var img = new Image(); img.referrerPolicy = 'no-referrer'; img.src = url; } catch (e) {}
   }
 
   function fireAll(list) { (list || []).forEach(fire); }
@@ -476,10 +436,8 @@ function renderPage(env, type, id, s, e, backdrop) {
         if (!xml) return null;
         var doc = new DOMParser().parseFromString(xml, 'text/xml');
         if (doc.querySelector('parsererror')) return null;
-
         var inline = doc.querySelector('InLine');
         if (inline) return parseInline(inline);
-
         var wrapper = doc.querySelector('Wrapper');
         if (wrapper) {
           var next = wrapper.querySelector('VASTAdTagURI');
@@ -491,9 +449,7 @@ function renderPage(env, type, id, s, e, backdrop) {
             inner.errors.push.apply(inner.errors,
               Array.from(wrapper.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean));
             var wt = collectTracking(wrapper);
-            for (var k in wt) {
-              inner.tracking[k] = (inner.tracking[k] || []).concat(wt[k]);
-            }
+            for (var k in wt) { inner.tracking[k] = (inner.tracking[k] || []).concat(wt[k]); }
             return inner;
           });
         }
@@ -507,10 +463,8 @@ function renderPage(env, type, id, s, e, backdrop) {
     var impressions = Array.from(inline.querySelectorAll('Impression')).map(function(e){return e.textContent.trim();}).filter(Boolean);
     var errors = Array.from(inline.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean);
     var tracking = collectTracking(inline);
-
     var clickThrough = t(inline, 'ClickThrough');
     var clickTracking = Array.from(inline.querySelectorAll('ClickTracking')).map(function(e){return e.textContent.trim();}).filter(Boolean);
-
     var linear = inline.querySelector('Linear');
     var skipOffset = linear ? parseDur(linear.getAttribute('skipoffset')) : null;
 
@@ -541,33 +495,43 @@ function renderPage(env, type, id, s, e, backdrop) {
     };
   }
 
-  function showCaptcha() {
-    adLayer.classList.add('hidden');
-    captchaEl.style.display = 'block';
+  // Ir al player (usado en todos los caminos de salida del ad)
+  function goToPlayer() {
+    if (reachedPlayer) return;
+    reachedPlayer = true;
     try { video.pause(); } catch (e) {}
     video.removeAttribute('src');
     try { video.load(); } catch (e) {}
+    if (pendingPlayerUrl) location.replace(pendingPlayerUrl);
+  }
+
+  function showAdLayer() {
+    captchaEl.style.display = 'none';
+    adLayer.classList.remove('hidden');
   }
 
   function startAd() {
-    if (!ad || !ad.mediaFile) return showCaptcha();
+    if (!ad || !ad.mediaFile) return goToPlayer();
+
+    adLoading.style.display = 'none';
+    video.style.display = 'block';
+    unmuteBtn.style.display = 'flex';
 
     video.muted = true;
     video.src = ad.mediaFile.url;
 
+    var playGuard = setTimeout(goToPlayer, AD_PLAY_GUARD);
+    video.addEventListener('playing', function(){ clearTimeout(playGuard); }, { once: true });
+    video.addEventListener('error',   function(){ clearTimeout(playGuard); }, { once: true });
+
     video.addEventListener('loadedmetadata', function(){
-      if (!fired.impression) {
-        fired.impression = true;
-        fireAll(ad.impressions);
-      }
+      if (!fired.impression) { fired.impression = true; fireAll(ad.impressions); }
     }, { once: true });
 
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('ended', onEnded);
     video.addEventListener('error', onError);
-    video.addEventListener('pause', function(){
-      if (!video.ended) fireAll(ad.tracking.pause);
-    });
+    video.addEventListener('pause', function(){ if (!video.ended) fireAll(ad.tracking.pause); });
     video.addEventListener('play',  function(){ fireAll(ad.tracking.resume); });
     video.addEventListener('volumechange', function(){
       fireAll(video.muted ? ad.tracking.mute : ad.tracking.unmute);
@@ -587,18 +551,12 @@ function renderPage(env, type, id, s, e, backdrop) {
         if (skipBtn.disabled) return;
         skipped = true;
         fireAll(ad.tracking.skip);
-        showCaptcha();
+        goToPlayer();
       });
     }
 
-    // Autoplay muted - siempre permitido por los navegadores
     var p = video.play();
-    if (p && p.catch) {
-      p.catch(function(){
-        // Caso raro: incluso muted falla → mostrar captcha directo
-        showCaptcha();
-      });
-    }
+    if (p && p.catch) p.catch(function(){ clearTimeout(playGuard); goToPlayer(); });
   }
 
   function onTimeUpdate() {
@@ -614,30 +572,21 @@ function renderPage(env, type, id, s, e, backdrop) {
 
     if (ad.skipOffset != null && !skipped) {
       var left = ad.skipOffset - video.currentTime;
-      if (left > 0) {
-        skipBtn.textContent = 'Omitir en ' + Math.ceil(left);
-        skipBtn.disabled = true;
-      } else {
-        skipBtn.textContent = 'Omitir anuncio ›';
-        skipBtn.disabled = false;
-      }
+      if (left > 0) { skipBtn.textContent = 'Omitir en ' + Math.ceil(left); skipBtn.disabled = true; }
+      else          { skipBtn.textContent = 'Omitir anuncio ›'; skipBtn.disabled = false; }
     }
   }
 
   function onEnded() {
-    if (!skipped) {
-      fired.complete = true;
-      fireAll(ad.tracking.complete);
-    }
-    showCaptcha();
+    if (!skipped) { fired.complete = true; fireAll(ad.tracking.complete); }
+    goToPlayer();
   }
 
   function onError() {
     fireAll(ad.errors);
-    showCaptcha();
+    goToPlayer();
   }
 
-  // Botón de unmute
   unmuteBtn.addEventListener('click', function(){
     video.muted = false;
     video.volume = 1;
@@ -645,20 +594,23 @@ function renderPage(env, type, id, s, e, backdrop) {
   });
 
   function initAd() {
-    var fallback = setTimeout(showCaptcha, 6000);
+    if (!VAST_URL) return goToPlayer();
+
+    var timeout = setTimeout(goToPlayer, AD_FETCH_TIMEOUT);
 
     resolveVast(VAST_URL).then(function(result){
-      clearTimeout(fallback);
+      clearTimeout(timeout);
       ad = result;
-      if (!ad || !ad.mediaFile) return showCaptcha();
+      if (!ad || !ad.mediaFile) return goToPlayer();
       startAd();
+    }).catch(function(){
+      clearTimeout(timeout);
+      goToPlayer();
     });
   }
 
-  initAd();
-
   // ============================================================
-  // Captcha
+  // Captcha → POST → VAST → redirect
   // ============================================================
   async function onTurnstile(token) {
     var msg = document.getElementById('msg');
@@ -670,12 +622,14 @@ function renderPage(env, type, id, s, e, backdrop) {
         body: JSON.stringify({ token: token })
       });
       var d = await r.json();
-      if (d.url) {
-        location.replace(d.url);
-      } else {
+      if (!d.url) {
         msg.textContent = 'Error: ' + (d.error || 'desconocido');
         if (window.turnstile) turnstile.reset();
+        return;
       }
+      pendingPlayerUrl = d.url;
+      showAdLayer();
+      initAd();
     } catch (err) {
       msg.textContent = 'Error de red';
       if (window.turnstile) turnstile.reset();
@@ -687,7 +641,6 @@ function renderPage(env, type, id, s, e, backdrop) {
 }
 
 /* ---------- HTML: 404 ---------- */
-
 function renderHelp(env) {
   return `<!doctype html>
 <html lang="es">
@@ -788,7 +741,6 @@ function renderHelp(env) {
 }
 
 /* ---------- HTML: 403 ---------- */
-
 function renderBlocked() {
   return `<!doctype html>
 <html lang="es">
