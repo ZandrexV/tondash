@@ -7,42 +7,39 @@
 
 const PASS_COOKIE = 'captcha_pass';
 const PASS_TTL = 60 * 60 * 24; // 24h
-const VAST_URL = 'https://unfolded-uncle.com/d.miF/zddwGtN/vaZsGiUV/Gewmj9/uJZ/UYl/k/P/T_cczYN/D/EU4FNUjik-thN/zVMk0aMYTLge3YMPwT'; // 👈 tu etiqueta VAST
+const VAST_URL = 'https://unfolded-uncle.com/d.miF/zddwGtN/vaZsGiUV/Gewmj9/uJZ/UYl/k/P/T_cczYN/D/EU4FNUjik-thN/zVMk0aMYTLge3YMPwT'; // fallback; mejor definir env.VAST_URL
+
+const HTML_HEADERS = { 'Content-Type': 'text/html; charset=utf-8' };
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
 
   if (request.method === 'GET' && isDirectNavigation(request, url)) {
-    return new Response(renderBlocked(), {
-      status: 403,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
+    return new Response(renderBlocked(), { status: 403, headers: HTML_HEADERS });
   }
 
+  // movie: sin temporada/episodio · tv: temporada/episodio opcionales · barra final opcional
   const m = url.pathname.match(
-    /^\/play\/(movie|tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?$/
+    /^\/play\/(?:(movie)\/(tt\d+|\d+)|(tv)\/(tt\d+|\d+)(?:\/(\d+)\/(\d+))?)\/?$/
   );
   if (!m) {
     if (request.method === 'GET') {
-      return new Response(renderHelp(env), {
-        status: 404,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      return new Response(renderHelp(env), { status: 404, headers: HTML_HEADERS });
     }
     return new Response('Not found', { status: 404 });
   }
 
-  const [, type, rawId, s, e] = m;
+  const type = m[1] || m[3];
+  const rawId = m[2] || m[4];
+  const s = m[5];
+  const e = m[6];
 
   let id = rawId;
   if (rawId.startsWith('tt')) {
     id = await resolveImdb(env, rawId, type);
     if (!id) {
       if (request.method === 'GET') {
-        return new Response(renderHelp(env), {
-          status: 404,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
+        return new Response(renderHelp(env), { status: 404, headers: HTML_HEADERS });
       }
       return json({ error: 'ID IMDB no encontrado en TMDB' }, 404);
     }
@@ -54,10 +51,7 @@ export async function onRequest({ request, env }) {
     if (hasValidPass) {
       const playerUrl = await generateLink(env, type, id, s, e);
       if (!playerUrl) {
-        return new Response(renderHelp(env), {
-          status: 502,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
+        return new Response(renderHelp(env), { status: 502, headers: HTML_HEADERS });
       }
       // OJO: con cookie válida se salta captcha Y ad → 302 directo
       return new Response(null, {
@@ -73,7 +67,7 @@ export async function onRequest({ request, env }) {
     const backdrop = await getBackdrop(env, type, id);
     return new Response(renderPage(env, type, id, s, e, backdrop), {
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
+        ...HTML_HEADERS,
         'Cache-Control': 'no-store, max-age=0',
       },
     });
@@ -94,11 +88,12 @@ export async function onRequest({ request, env }) {
     if (!playerUrl) return json({ error: 'Error generando enlace' }, 502);
 
     const headers = new Headers({ 'Content-Type': 'application/json' });
-    if (!alreadyPassed) {
-      const passValue = await createPassCookie(getSecret(env));
+    const secret = getSecret(env);
+    if (!alreadyPassed && secret) {
+      const passValue = await createPassCookie(secret);
       headers.append(
         'Set-Cookie',
-        `${PASS_COOKIE}=${passValue}; Max-Age=${PASS_TTL}; Path=/; HttpOnly; Secure; SameSite=None`
+        `${PASS_COOKIE}=${passValue}; Max-Age=${PASS_TTL}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned`
       );
     }
     return new Response(
@@ -108,6 +103,23 @@ export async function onRequest({ request, env }) {
   }
 
   return new Response('Method Not Allowed', { status: 405 });
+}
+
+/* ---------- Utilidades ---------- */
+const esc = (v) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+  );
+
+// JSON seguro para incrustar dentro de <script>
+const jsStr = (v) =>
+  JSON.stringify(v ?? '')
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+
+function fetchT(url, opts = {}, ms = 5000) {
+  return fetch(url, { ...opts, signal: AbortSignal.timeout(ms) });
 }
 
 /* ---------- Detección de acceso directo ---------- */
@@ -141,7 +153,7 @@ function hexToBytes(hex) {
   if (typeof hex !== 'string' || hex.length % 2 !== 0) return null;
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < bytes.length; i++) {
-    const byte = parseInt(hex.substr(i * 2, 2), 16);
+    const byte = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
     if (Number.isNaN(byte)) return null;
     bytes[i] = byte;
   }
@@ -158,6 +170,7 @@ async function hmacSign(secret, payload) {
 }
 
 async function createPassCookie(secret) {
+  if (!secret) throw new Error('Falta PASS_SECRET');
   const expiry = Math.floor(Date.now() / 1000) + PASS_TTL;
   const payload = `v1:${expiry}`;
   const sig = await hmacSign(secret, payload);
@@ -188,13 +201,15 @@ async function verifyPassCookie(value, secret) {
 async function hasPass(request, env) {
   const cookie = getCookie(request, PASS_COOKIE);
   if (!cookie) return false;
-  return verifyPassCookie(cookie, getSecret(env));
+  try {
+    return await verifyPassCookie(cookie, getSecret(env));
+  } catch { return false; }
 }
 
 /* ---------- Helpers de red ---------- */
 async function resolveImdb(env, imdbId, type) {
   try {
-    const r = await fetch(
+    const r = await fetchT(
       `https://api.themoviedb.org/3/find/${imdbId}?external_source=imdb_id&api_key=${env.TMDB_API_KEY}`
     );
     if (!r.ok) return null;
@@ -210,7 +225,7 @@ async function getBackdrop(env, type, id) {
     const endpoint = type === 'movie'
       ? `https://api.themoviedb.org/3/movie/${id}`
       : `https://api.themoviedb.org/3/tv/${id}`;
-    const r = await fetch(`${endpoint}?api_key=${env.TMDB_API_KEY}&language=es-ES`);
+    const r = await fetchT(`${endpoint}?api_key=${env.TMDB_API_KEY}&language=es-ES`);
     if (!r.ok) return null;
     const d = await r.json();
     if (!d.backdrop_path) return null;
@@ -221,7 +236,7 @@ async function getBackdrop(env, type, id) {
 async function generateLink(env, type, id, s, e) {
   try {
     const target = `${env.PLAYER_URL}/link/${type}/${id}${s ? `/${s}/${e}` : ''}`;
-    const r = await fetch(target, { headers: { 'X-Api-Key': env.LINK_API_KEY } });
+    const r = await fetchT(target, { headers: { 'X-Api-Key': env.LINK_API_KEY } });
     const d = await r.json().catch(() => null);
     if (!d || !d.success) return null;
     return d.url;
@@ -229,20 +244,23 @@ async function generateLink(env, type, id, s, e) {
 }
 
 async function verifyTurnstile(env, token, request) {
-  const form = new URLSearchParams({
-    secret: env.TURNSTILE_SECRET_KEY,
-    response: token,
-  });
-  const ip = request.headers.get('CF-Connecting-IP');
-  if (ip) form.append('remoteip', ip);
-  const r = await fetch(
-    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-    { method: 'POST', body: form }
-  );
-  const d = await r.json().catch(() => null);
-  console.log('siteverify status:', r.status);
-  console.log('siteverify body:', JSON.stringify(d));
-  return d?.success === true;
+  try {
+    const form = new URLSearchParams({
+      secret: env.TURNSTILE_SECRET_KEY,
+      response: token,
+    });
+    const ip = request.headers.get('CF-Connecting-IP');
+    if (ip) form.append('remoteip', ip);
+    const r = await fetchT(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      { method: 'POST', body: form }
+    );
+    const d = await r.json().catch(() => null);
+    if (d?.success !== true) {
+      console.log('siteverify fail:', r.status, JSON.stringify(d?.['error-codes'] || d));
+    }
+    return d?.success === true;
+  } catch { return false; }
 }
 
 function json(obj, status = 200) {
@@ -254,7 +272,9 @@ function json(obj, status = 200) {
 
 /* ---------- HTML: captcha primero, VAST después ---------- */
 function renderPage(env, type, id, s, e, backdrop) {
-  const bg = backdrop ? `background-image:url('${backdrop}')` : 'background:#0b0b0b';
+  const bg = backdrop
+    ? `background-image:url('${esc(backdrop)}')`
+    : 'background:#0b0b0b';
 
   return `<!doctype html>
 <html lang="es">
@@ -349,8 +369,10 @@ function renderPage(env, type, id, s, e, backdrop) {
   <div id="msg">Verifica que eres humano para continuar</div>
   <div class="captcha-wrap">
     <div class="cf-turnstile"
-         data-sitekey="${env.TURNSTILE_SITE_KEY}"
+         data-sitekey="${esc(env.TURNSTILE_SITE_KEY)}"
          data-callback="onTurnstile"
+         data-expired-callback="onTsReset"
+         data-error-callback="onTsReset"
          data-appearance="always"
          data-size="flexible"
          data-theme="dark"></div>
@@ -378,8 +400,8 @@ function renderPage(env, type, id, s, e, backdrop) {
 </div>
 
 <script>
-  var VAST_URL = ${JSON.stringify(VAST_URL)};
-  var AD_FETCH_TIMEOUT = 2000;   // ms para obtener el VAST
+  var VAST_URL = ${jsStr(env.VAST_URL || VAST_URL)};
+  var AD_FETCH_TIMEOUT = 2000;   // ms para obtener el VAST (cada petición)
   var AD_PLAY_GUARD    = 5000;   // ms para que el video empiece
 
   var adLayer    = document.getElementById('ad-layer');
@@ -403,7 +425,7 @@ function renderPage(env, type, id, s, e, backdrop) {
 
   function parseDur(s) {
     if (!s) return null;
-    if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+    if (/^\\d+(\\.\\d+)?$/.test(s)) return parseFloat(s);
     var p = s.split(':').map(parseFloat);
     if (p.length === 3) return p[0]*3600 + p[1]*60 + p[2];
     if (p.length === 2) return p[0]*60 + p[1];
@@ -420,18 +442,31 @@ function renderPage(env, type, id, s, e, backdrop) {
     return out;
   }
 
-  function fire(url) {
+  function fire(url, code) {
     if (!url) return;
+    url = url.replace(/\\[(CACHEBUSTING|TIMESTAMP)\\]/g, Date.now())
+             .replace(/\\[ERRORCODE\\]/g, code || 900)
+             .replace(/\\[CONTENTPLAYHEAD\\]/g, video && video.currentTime ? video.currentTime.toFixed(3) : '00:00:00.000');
     try { var img = new Image(); img.referrerPolicy = 'no-referrer'; img.src = url; } catch (e) {}
   }
 
-  function fireAll(list) { (list || []).forEach(fire); }
+  function fireAll(list, code) {
+    (list || []).forEach(function(u){ fire(u, code); });
+  }
+
+  function texts(root, sel) {
+    return Array.from(root.querySelectorAll(sel))
+      .map(function(e){ return e.textContent.trim(); })
+      .filter(Boolean);
+  }
 
   function resolveVast(url, depth) {
     depth = depth || 0;
     if (depth > 3) return Promise.resolve(null);
-    return fetch(url, { credentials: 'omit', mode: 'cors' })
-      .then(function(r){ return r.ok ? r.text() : null; })
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, AD_FETCH_TIMEOUT);
+    return fetch(url, { credentials: 'omit', mode: 'cors', signal: ctrl.signal })
+      .then(function(r){ clearTimeout(timer); return r.ok ? r.text() : null; })
       .then(function(xml){
         if (!xml) return null;
         var doc = new DOMParser().parseFromString(xml, 'text/xml');
@@ -444,10 +479,9 @@ function renderPage(env, type, id, s, e, backdrop) {
           if (!next) return null;
           return resolveVast(next.textContent.trim(), depth + 1).then(function(inner){
             if (!inner) return null;
-            inner.impressions.push.apply(inner.impressions,
-              Array.from(wrapper.querySelectorAll('Impression')).map(function(e){return e.textContent.trim();}).filter(Boolean));
-            inner.errors.push.apply(inner.errors,
-              Array.from(wrapper.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean));
+            inner.impressions.push.apply(inner.impressions, texts(wrapper, 'Impression'));
+            inner.errors.push.apply(inner.errors, texts(wrapper, 'Error'));
+            inner.clickTracking.push.apply(inner.clickTracking, texts(wrapper, 'ClickTracking'));
             var wt = collectTracking(wrapper);
             for (var k in wt) { inner.tracking[k] = (inner.tracking[k] || []).concat(wt[k]); }
             return inner;
@@ -455,18 +489,25 @@ function renderPage(env, type, id, s, e, backdrop) {
         }
         return null;
       })
-      .catch(function(){ return null; });
+      .catch(function(){ clearTimeout(timer); return null; });
   }
 
   function parseInline(inline) {
     var duration = parseDur(t(inline, 'Duration'));
-    var impressions = Array.from(inline.querySelectorAll('Impression')).map(function(e){return e.textContent.trim();}).filter(Boolean);
-    var errors = Array.from(inline.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+    var impressions = texts(inline, 'Impression');
+    var errors = texts(inline, 'Error');
     var tracking = collectTracking(inline);
     var clickThrough = t(inline, 'ClickThrough');
-    var clickTracking = Array.from(inline.querySelectorAll('ClickTracking')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+    var clickTracking = texts(inline, 'ClickTracking');
     var linear = inline.querySelector('Linear');
-    var skipOffset = linear ? parseDur(linear.getAttribute('skipoffset')) : null;
+
+    var rawSkip = linear ? linear.getAttribute('skipoffset') : null;
+    var skipOffset = null;
+    if (rawSkip) {
+      skipOffset = /%$/.test(rawSkip)
+        ? (duration ? duration * parseFloat(rawSkip) / 100 : null)
+        : parseDur(rawSkip);
+    }
 
     var mediaFiles = Array.from(inline.querySelectorAll('MediaFile')).map(function(m){
       return {
@@ -478,10 +519,13 @@ function renderPage(env, type, id, s, e, backdrop) {
     }).filter(function(m){ return m.url; });
 
     var mp4s = mediaFiles.filter(function(m){
-      return /mp4|webm/i.test(m.type) || /\.(mp4|webm)(\?|$)/i.test(m.url);
+      return /mp4|webm/i.test(m.type) || /\\.(mp4|webm)(\\?|$)/i.test(m.url);
     });
     var pool = mp4s.length ? mp4s : mediaFiles;
-    pool.sort(function(a,b){ return b.bitrate - a.bitrate; });
+    // El más cercano a ~480p (evita bitrates enormes en móvil)
+    pool.sort(function(a,b){
+      return Math.abs((a.height||480)-480) - Math.abs((b.height||480)-480);
+    });
 
     return {
       duration: duration,
@@ -495,10 +539,24 @@ function renderPage(env, type, id, s, e, backdrop) {
     };
   }
 
+  // Handlers con nombre para poder quitarlos antes de salir
+  function onPause()  { if (!video.ended) fireAll(ad.tracking.pause); }
+  function onPlay()   { fireAll(ad.tracking.resume); }
+  function onVolume() {
+    fireAll(video.muted ? ad.tracking.mute : ad.tracking.unmute);
+    if (!video.muted) unmuteBtn.style.display = 'none';
+  }
+
   // Ir al player (usado en todos los caminos de salida del ad)
   function goToPlayer() {
     if (reachedPlayer) return;
     reachedPlayer = true;
+    video.removeEventListener('timeupdate', onTimeUpdate);
+    video.removeEventListener('pause', onPause);
+    video.removeEventListener('play', onPlay);
+    video.removeEventListener('volumechange', onVolume);
+    video.removeEventListener('ended', onEnded);
+    video.removeEventListener('error', onError);
     try { video.pause(); } catch (e) {}
     video.removeAttribute('src');
     try { video.load(); } catch (e) {}
@@ -511,6 +569,7 @@ function renderPage(env, type, id, s, e, backdrop) {
   }
 
   function startAd() {
+    if (reachedPlayer) return;
     if (!ad || !ad.mediaFile) return goToPlayer();
 
     adLoading.style.display = 'none';
@@ -531,17 +590,21 @@ function renderPage(env, type, id, s, e, backdrop) {
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('ended', onEnded);
     video.addEventListener('error', onError);
-    video.addEventListener('pause', function(){ if (!video.ended) fireAll(ad.tracking.pause); });
-    video.addEventListener('play',  function(){ fireAll(ad.tracking.resume); });
-    video.addEventListener('volumechange', function(){
-      fireAll(video.muted ? ad.tracking.mute : ad.tracking.unmute);
-      if (!video.muted) unmuteBtn.style.display = 'none';
-    });
+    video.addEventListener('pause', onPause);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('volumechange', onVolume);
 
     if (ad.clickThrough) {
       clickBtn.href = ad.clickThrough;
       clickBtn.hidden = false;
-      clickBtn.addEventListener('click', function(){ fireAll(ad.clickTracking); });
+      clickBtn.addEventListener('click', function(){
+        fireAll(ad.clickTracking);
+        try { video.pause(); } catch (e) {}
+      });
+      // Reanudar al volver de la pestaña del anunciante
+      window.addEventListener('focus', function(){
+        if (!reachedPlayer && video.paused && !video.ended) video.play().catch(function(){});
+      });
     }
 
     if (ad.skipOffset != null) {
@@ -561,7 +624,8 @@ function renderPage(env, type, id, s, e, backdrop) {
 
   function onTimeUpdate() {
     if (!ad) return;
-    var dur = video.duration || ad.duration || 0;
+    var d = video.duration;
+    var dur = (isFinite(d) && d > 0) ? d : (ad.duration || 0);
     if (!dur) return;
     var pct = video.currentTime / dur;
 
@@ -578,12 +642,12 @@ function renderPage(env, type, id, s, e, backdrop) {
   }
 
   function onEnded() {
-    if (!skipped) { fired.complete = true; fireAll(ad.tracking.complete); }
+    if (!skipped && !fired.complete) { fired.complete = true; fireAll(ad.tracking.complete); }
     goToPlayer();
   }
 
   function onError() {
-    fireAll(ad.errors);
+    fireAll(ad.errors, 405);
     goToPlayer();
   }
 
@@ -600,6 +664,7 @@ function renderPage(env, type, id, s, e, backdrop) {
 
     resolveVast(VAST_URL).then(function(result){
       clearTimeout(timeout);
+      if (reachedPlayer) return;
       ad = result;
       if (!ad || !ad.mediaFile) return goToPlayer();
       startAd();
@@ -612,6 +677,10 @@ function renderPage(env, type, id, s, e, backdrop) {
   // ============================================================
   // Captcha → POST → VAST → redirect
   // ============================================================
+  function onTsReset() {
+    document.getElementById('msg').textContent = 'Verifica de nuevo';
+  }
+
   async function onTurnstile(token) {
     var msg = document.getElementById('msg');
     msg.textContent = 'Generando enlace…';
