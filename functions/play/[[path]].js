@@ -2,12 +2,12 @@
 // - Solo accesible embebido (Sec-Fetch-Dest: iframe)
 // - Acepta TMDB ID o IMDB ID (ttXXXXXXX)
 // - Captcha la primera vez, luego cookie HMAC
-// - Pre-roll VAST propio (sin SDK de Google) antes del captcha
+// - Pre-roll VAST propio con autoplay muted + botón de unmute
 // - El player se sirve vía /embed (functions/embed.js)
 
 const PASS_COOKIE = 'captcha_pass';
-const PASS_TTL = 30 * 30 * 12; // 24h
-const VAST_URL = 'https://unfolded-uncle.com/dpmkF_z/d.G/N/v/Z/GSUw/Kecmy9vu/ZxUBlNk/PKT/c/zYNnDJEE4/N/j/kKtFNlz/Ms0wMhTAgb3oMGymZBsvaoWI1/prd/Dv0/xm'; // 👈 tu etiqueta VAST
+const PASS_TTL = 60 * 60 * 24; // 24h
+const VAST_URL = 'https://unfolded-uncle.com/d_mSFoz.dIGVNGv_ZcG/UP/re/mJ9BusZgUZljkQP/TOcezbNSDiEf4ZNvjVkCtXNpzuMc0HM_Tzgn3tM/wP'; // 👈 tu etiqueta VAST
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -293,7 +293,7 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML: página de captcha con pre-roll VAST ---------- */
+/* ---------- HTML: página de captcha con pre-roll VAST (autoplay muted) ---------- */
 
 function renderPage(env, type, id, s, e, backdrop) {
   const bg = backdrop
@@ -337,20 +337,27 @@ function renderPage(env, type, id, s, e, backdrop) {
   #ad-layer{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center}
   #ad-layer.hidden{display:none}
   #ad-video{width:100%;height:100%;object-fit:contain;background:#000}
-  #ad-play{
-    position:absolute;padding:.9rem 1.6rem;border:0;border-radius:12px;
-    background:#fff;color:#111;font-weight:600;font-size:1rem;cursor:pointer;
+  #ad-unmute{
+    position:absolute;top:1rem;right:1rem;
+    display:flex;align-items:center;gap:.4rem;
+    padding:.5rem .9rem;border:0;border-radius:999px;
+    background:rgba(255,255,255,.92);color:#111;
+    font-weight:600;font-size:.85rem;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,.35);
+    font-family:inherit;z-index:10001;
   }
+  #ad-unmute:hover{background:#fff}
+  #ad-unmute svg{width:16px;height:16px;flex-shrink:0}
   #ad-skip{
     position:absolute;bottom:1.25rem;right:1.25rem;padding:.5rem 1rem;
     background:rgba(0,0,0,.7);color:#fff;border-radius:8px;font-size:.88rem;
-    cursor:pointer;border:0;font-family:inherit;
+    cursor:pointer;border:0;font-family:inherit;z-index:10001;
   }
   #ad-skip[disabled]{cursor:default;opacity:.6}
   #ad-click{
-    position:absolute;top:1rem;right:1rem;padding:.5rem 1rem;
+    position:absolute;top:1rem;left:1rem;padding:.5rem 1rem;
     background:rgba(255,255,255,.9);color:#111;border-radius:8px;
-    font-size:.82rem;text-decoration:none;font-weight:600;
+    font-size:.82rem;text-decoration:none;font-weight:600;z-index:10001;
   }
 
   @media (max-width:480px), (max-height:500px){
@@ -360,9 +367,9 @@ function renderPage(env, type, id, s, e, backdrop) {
     .title{font-size:.82rem}
     #msg{font-size:.72rem;margin-top:.35rem}
     .captcha-wrap{margin-top:.6rem;transform:scale(.82);transform-origin:center}
-    #ad-play{padding:.7rem 1.2rem;font-size:.85rem}
+    #ad-unmute{top:.5rem;right:.5rem;padding:.4rem .75rem;font-size:.75rem}
     #ad-skip{bottom:.75rem;right:.75rem;font-size:.75rem;padding:.35rem .7rem}
-    #ad-click{top:.5rem;right:.5rem;font-size:.72rem;padding:.35rem .7rem}
+    #ad-click{top:.5rem;left:.5rem;font-size:.72rem;padding:.35rem .7rem}
   }
   @media (max-width:320px), (max-height:340px){
     body{padding:.35rem}
@@ -376,10 +383,18 @@ function renderPage(env, type, id, s, e, backdrop) {
 </head>
 <body>
 
-<!-- ========== Anuncio (pre-roll) ========== -->
+<!-- ========== Anuncio (pre-roll, autoplay muted) ========== -->
 <div id="ad-layer">
-  <video id="ad-video" playsinline preload="auto"></video>
-  <button id="ad-play" type="button">▶ Reproducir anuncio</button>
+  <video id="ad-video" playsinline autoplay muted preload="auto"></video>
+  <button id="ad-unmute" type="button" title="Activar sonido">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"></polygon>
+      <line x1="23" y1="9" x2="17" y2="15"></line>
+      <line x1="17" y1="9" x2="23" y2="15"></line>
+    </svg>
+    <span>Activar sonido</span>
+  </button>
   <button id="ad-skip" type="button" hidden>Omitir</button>
   <a id="ad-click" hidden target="_blank" rel="noopener noreferrer">Más info ›</a>
 </div>
@@ -402,13 +417,13 @@ function renderPage(env, type, id, s, e, backdrop) {
 
 <script>
   // ============================================================
-  // Reproductor VAST propio (InLine + Wrapper)
+  // Reproductor VAST propio (InLine + Wrapper) - autoplay muted
   // ============================================================
   var VAST_URL = ${JSON.stringify(VAST_URL)};
 
   var adLayer    = document.getElementById('ad-layer');
   var video      = document.getElementById('ad-video');
-  var playBtn    = document.getElementById('ad-play');
+  var unmuteBtn  = document.getElementById('ad-unmute');
   var skipBtn    = document.getElementById('ad-skip');
   var clickBtn   = document.getElementById('ad-click');
   var captchaEl  = document.getElementById('captcha-card');
@@ -535,11 +550,10 @@ function renderPage(env, type, id, s, e, backdrop) {
   }
 
   function startAd() {
-    playBtn.style.display = 'none';
     if (!ad || !ad.mediaFile) return showCaptcha();
 
+    video.muted = true;
     video.src = ad.mediaFile.url;
-    video.muted = false;
 
     video.addEventListener('loadedmetadata', function(){
       if (!fired.impression) {
@@ -551,10 +565,13 @@ function renderPage(env, type, id, s, e, backdrop) {
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('ended', onEnded);
     video.addEventListener('error', onError);
-    video.addEventListener('pause', function(){ fireAll(ad.tracking.pause); });
+    video.addEventListener('pause', function(){
+      if (!video.ended) fireAll(ad.tracking.pause);
+    });
     video.addEventListener('play',  function(){ fireAll(ad.tracking.resume); });
     video.addEventListener('volumechange', function(){
       fireAll(video.muted ? ad.tracking.mute : ad.tracking.unmute);
+      if (!video.muted) unmuteBtn.style.display = 'none';
     });
 
     if (ad.clickThrough) {
@@ -574,10 +591,14 @@ function renderPage(env, type, id, s, e, backdrop) {
       });
     }
 
-    video.play().catch(function(){
-      playBtn.style.display = '';
-      playBtn.textContent = '▶ Reintentar';
-    });
+    // Autoplay muted - siempre permitido por los navegadores
+    var p = video.play();
+    if (p && p.catch) {
+      p.catch(function(){
+        // Caso raro: incluso muted falla → mostrar captcha directo
+        showCaptcha();
+      });
+    }
   }
 
   function onTimeUpdate() {
@@ -616,6 +637,13 @@ function renderPage(env, type, id, s, e, backdrop) {
     showCaptcha();
   }
 
+  // Botón de unmute
+  unmuteBtn.addEventListener('click', function(){
+    video.muted = false;
+    video.volume = 1;
+    unmuteBtn.style.display = 'none';
+  });
+
   function initAd() {
     var fallback = setTimeout(showCaptcha, 6000);
 
@@ -623,7 +651,7 @@ function renderPage(env, type, id, s, e, backdrop) {
       clearTimeout(fallback);
       ad = result;
       if (!ad || !ad.mediaFile) return showCaptcha();
-      playBtn.addEventListener('click', startAd, { once: true });
+      startAd();
     });
   }
 
