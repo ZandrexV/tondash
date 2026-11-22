@@ -2,10 +2,12 @@
 // - Solo accesible embebido (Sec-Fetch-Dest: iframe)
 // - Acepta TMDB ID o IMDB ID (ttXXXXXXX)
 // - Captcha la primera vez, luego cookie HMAC
-// - El player se sirve vía /embed (functions/embed.js) para heredar fullscreen
+// - Pre-roll VAST propio (sin SDK de Google) antes del captcha
+// - El player se sirve vía /embed (functions/embed.js)
 
 const PASS_COOKIE = 'captcha_pass';
-const PASS_TTL = 60 * 60 * 24; // 24h
+const PASS_TTL = 30 * 30 * 12; // 24h
+const VAST_URL = 'https://unfolded-uncle.com/dpmkF_z/d.G/N/v/Z/GSUw/Kecmy9vu/ZxUBlNk/PKT/c/zYNnDJEE4/N/j/kKtFNlz/Ms0wMhTAgb3oMGymZBsvaoWI1/prd/Dv0/xm'; // 👈 tu etiqueta VAST
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -65,14 +67,18 @@ export async function onRequest({ request, env }) {
         status: 302,
         headers: {
           Location: `/embed?src=${encodeURIComponent(playerUrl)}`,
-          'Cache-Control': 'no-store',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Vary: 'Cookie',
         },
       });
     }
 
     const backdrop = await getBackdrop(env, type, id);
     return new Response(renderPage(env, type, id, s, e, backdrop), {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, max-age=0',
+      },
     });
   }
 
@@ -287,7 +293,7 @@ function json(obj, status = 200) {
   });
 }
 
-/* ---------- HTML: página de captcha ---------- */
+/* ---------- HTML: página de captcha con pre-roll VAST ---------- */
 
 function renderPage(env, type, id, s, e, backdrop) {
   const bg = backdrop
@@ -326,6 +332,27 @@ function renderPage(env, type, id, s, e, backdrop) {
   .title{font-size:1rem;font-weight:500}
   #msg{font-size:.95rem;opacity:.85;margin-top:.75rem}
   .captcha-wrap{margin-top:1.25rem;display:flex;justify-content:center}
+
+  /* Anuncio */
+  #ad-layer{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center}
+  #ad-layer.hidden{display:none}
+  #ad-video{width:100%;height:100%;object-fit:contain;background:#000}
+  #ad-play{
+    position:absolute;padding:.9rem 1.6rem;border:0;border-radius:12px;
+    background:#fff;color:#111;font-weight:600;font-size:1rem;cursor:pointer;
+  }
+  #ad-skip{
+    position:absolute;bottom:1.25rem;right:1.25rem;padding:.5rem 1rem;
+    background:rgba(0,0,0,.7);color:#fff;border-radius:8px;font-size:.88rem;
+    cursor:pointer;border:0;font-family:inherit;
+  }
+  #ad-skip[disabled]{cursor:default;opacity:.6}
+  #ad-click{
+    position:absolute;top:1rem;right:1rem;padding:.5rem 1rem;
+    background:rgba(255,255,255,.9);color:#111;border-radius:8px;
+    font-size:.82rem;text-decoration:none;font-weight:600;
+  }
+
   @media (max-width:480px), (max-height:500px){
     body{padding:.5rem}
     .card{padding:1rem .75rem;border-radius:10px;max-width:100%}
@@ -333,6 +360,9 @@ function renderPage(env, type, id, s, e, backdrop) {
     .title{font-size:.82rem}
     #msg{font-size:.72rem;margin-top:.35rem}
     .captcha-wrap{margin-top:.6rem;transform:scale(.82);transform-origin:center}
+    #ad-play{padding:.7rem 1.2rem;font-size:.85rem}
+    #ad-skip{bottom:.75rem;right:.75rem;font-size:.75rem;padding:.35rem .7rem}
+    #ad-click{top:.5rem;right:.5rem;font-size:.72rem;padding:.35rem .7rem}
   }
   @media (max-width:320px), (max-height:340px){
     body{padding:.35rem}
@@ -345,8 +375,18 @@ function renderPage(env, type, id, s, e, backdrop) {
 </style>
 </head>
 <body>
+
+<!-- ========== Anuncio (pre-roll) ========== -->
+<div id="ad-layer">
+  <video id="ad-video" playsinline preload="auto"></video>
+  <button id="ad-play" type="button">▶ Reproducir anuncio</button>
+  <button id="ad-skip" type="button" hidden>Omitir</button>
+  <a id="ad-click" hidden target="_blank" rel="noopener noreferrer">Más info ›</a>
+</div>
+
+<!-- ========== Captcha ========== -->
 <div class="overlay"></div>
-<div class="card">
+<div class="card" id="captcha-card" style="display:none;">
   <div class="spinner"></div>
   <div class="title">Preparando el reproductor…</div>
   <div id="msg">Verifica que eres humano para continuar</div>
@@ -359,7 +399,239 @@ function renderPage(env, type, id, s, e, backdrop) {
          data-theme="dark"></div>
   </div>
 </div>
+
 <script>
+  // ============================================================
+  // Reproductor VAST propio (InLine + Wrapper)
+  // ============================================================
+  var VAST_URL = ${JSON.stringify(VAST_URL)};
+
+  var adLayer    = document.getElementById('ad-layer');
+  var video      = document.getElementById('ad-video');
+  var playBtn    = document.getElementById('ad-play');
+  var skipBtn    = document.getElementById('ad-skip');
+  var clickBtn   = document.getElementById('ad-click');
+  var captchaEl  = document.getElementById('captcha-card');
+
+  var ad = null;
+  var fired = { impression:false, start:false, q1:false, mid:false, q3:false, complete:false };
+  var skipped = false;
+
+  function t(root, tag) {
+    var el = root.querySelector(tag);
+    return el ? el.textContent.trim() : null;
+  }
+
+  function parseDur(s) {
+    if (!s) return null;
+    if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+    var p = s.split(':').map(parseFloat);
+    if (p.length === 3) return p[0]*3600 + p[1]*60 + p[2];
+    if (p.length === 2) return p[0]*60 + p[1];
+    return null;
+  }
+
+  function collectTracking(root) {
+    var out = {};
+    root.querySelectorAll('Tracking').forEach(function(el){
+      var ev = el.getAttribute('event');
+      var url = el.textContent.trim();
+      if (ev && url) { (out[ev] = out[ev] || []).push(url); }
+    });
+    return out;
+  }
+
+  function fire(url) {
+    if (!url) return;
+    try {
+      var img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.src = url;
+    } catch (e) {}
+  }
+
+  function fireAll(list) { (list || []).forEach(fire); }
+
+  function resolveVast(url, depth) {
+    depth = depth || 0;
+    if (depth > 3) return Promise.resolve(null);
+    return fetch(url, { credentials: 'omit', mode: 'cors' })
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .then(function(xml){
+        if (!xml) return null;
+        var doc = new DOMParser().parseFromString(xml, 'text/xml');
+        if (doc.querySelector('parsererror')) return null;
+
+        var inline = doc.querySelector('InLine');
+        if (inline) return parseInline(inline);
+
+        var wrapper = doc.querySelector('Wrapper');
+        if (wrapper) {
+          var next = wrapper.querySelector('VASTAdTagURI');
+          if (!next) return null;
+          return resolveVast(next.textContent.trim(), depth + 1).then(function(inner){
+            if (!inner) return null;
+            inner.impressions.push.apply(inner.impressions,
+              Array.from(wrapper.querySelectorAll('Impression')).map(function(e){return e.textContent.trim();}).filter(Boolean));
+            inner.errors.push.apply(inner.errors,
+              Array.from(wrapper.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean));
+            var wt = collectTracking(wrapper);
+            for (var k in wt) {
+              inner.tracking[k] = (inner.tracking[k] || []).concat(wt[k]);
+            }
+            return inner;
+          });
+        }
+        return null;
+      })
+      .catch(function(){ return null; });
+  }
+
+  function parseInline(inline) {
+    var duration = parseDur(t(inline, 'Duration'));
+    var impressions = Array.from(inline.querySelectorAll('Impression')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+    var errors = Array.from(inline.querySelectorAll('Error')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+    var tracking = collectTracking(inline);
+
+    var clickThrough = t(inline, 'ClickThrough');
+    var clickTracking = Array.from(inline.querySelectorAll('ClickTracking')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+
+    var linear = inline.querySelector('Linear');
+    var skipOffset = linear ? parseDur(linear.getAttribute('skipoffset')) : null;
+
+    var mediaFiles = Array.from(inline.querySelectorAll('MediaFile')).map(function(m){
+      return {
+        url: m.textContent.trim(),
+        type: m.getAttribute('type') || '',
+        bitrate: parseInt(m.getAttribute('bitrate') || '0', 10),
+        height: parseInt(m.getAttribute('height') || '0', 10)
+      };
+    }).filter(function(m){ return m.url; });
+
+    var mp4s = mediaFiles.filter(function(m){
+      return /mp4|webm/i.test(m.type) || /\.(mp4|webm)(\?|$)/i.test(m.url);
+    });
+    var pool = mp4s.length ? mp4s : mediaFiles;
+    pool.sort(function(a,b){ return b.bitrate - a.bitrate; });
+
+    return {
+      duration: duration,
+      impressions: impressions,
+      errors: errors,
+      tracking: tracking,
+      clickThrough: clickThrough,
+      clickTracking: clickTracking,
+      skipOffset: skipOffset,
+      mediaFile: pool[0] || null
+    };
+  }
+
+  function showCaptcha() {
+    adLayer.classList.add('hidden');
+    captchaEl.style.display = 'block';
+    try { video.pause(); } catch (e) {}
+    video.removeAttribute('src');
+    try { video.load(); } catch (e) {}
+  }
+
+  function startAd() {
+    playBtn.style.display = 'none';
+    if (!ad || !ad.mediaFile) return showCaptcha();
+
+    video.src = ad.mediaFile.url;
+    video.muted = false;
+
+    video.addEventListener('loadedmetadata', function(){
+      if (!fired.impression) {
+        fired.impression = true;
+        fireAll(ad.impressions);
+      }
+    }, { once: true });
+
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('ended', onEnded);
+    video.addEventListener('error', onError);
+    video.addEventListener('pause', function(){ fireAll(ad.tracking.pause); });
+    video.addEventListener('play',  function(){ fireAll(ad.tracking.resume); });
+    video.addEventListener('volumechange', function(){
+      fireAll(video.muted ? ad.tracking.mute : ad.tracking.unmute);
+    });
+
+    if (ad.clickThrough) {
+      clickBtn.href = ad.clickThrough;
+      clickBtn.hidden = false;
+      clickBtn.addEventListener('click', function(){ fireAll(ad.clickTracking); });
+    }
+
+    if (ad.skipOffset != null) {
+      skipBtn.hidden = false;
+      skipBtn.disabled = true;
+      skipBtn.addEventListener('click', function(){
+        if (skipBtn.disabled) return;
+        skipped = true;
+        fireAll(ad.tracking.skip);
+        showCaptcha();
+      });
+    }
+
+    video.play().catch(function(){
+      playBtn.style.display = '';
+      playBtn.textContent = '▶ Reintentar';
+    });
+  }
+
+  function onTimeUpdate() {
+    if (!ad) return;
+    var dur = video.duration || ad.duration || 0;
+    if (!dur) return;
+    var pct = video.currentTime / dur;
+
+    if (!fired.start && video.currentTime > 0.1) { fired.start = true; fireAll(ad.tracking.start); }
+    if (!fired.q1 && pct >= 0.25) { fired.q1 = true; fireAll(ad.tracking.firstQuartile); }
+    if (!fired.mid && pct >= 0.5) { fired.mid = true; fireAll(ad.tracking.midpoint); }
+    if (!fired.q3 && pct >= 0.75) { fired.q3 = true; fireAll(ad.tracking.thirdQuartile); }
+
+    if (ad.skipOffset != null && !skipped) {
+      var left = ad.skipOffset - video.currentTime;
+      if (left > 0) {
+        skipBtn.textContent = 'Omitir en ' + Math.ceil(left);
+        skipBtn.disabled = true;
+      } else {
+        skipBtn.textContent = 'Omitir anuncio ›';
+        skipBtn.disabled = false;
+      }
+    }
+  }
+
+  function onEnded() {
+    if (!skipped) {
+      fired.complete = true;
+      fireAll(ad.tracking.complete);
+    }
+    showCaptcha();
+  }
+
+  function onError() {
+    fireAll(ad.errors);
+    showCaptcha();
+  }
+
+  function initAd() {
+    var fallback = setTimeout(showCaptcha, 6000);
+
+    resolveVast(VAST_URL).then(function(result){
+      clearTimeout(fallback);
+      ad = result;
+      if (!ad || !ad.mediaFile) return showCaptcha();
+      playBtn.addEventListener('click', startAd, { once: true });
+    });
+  }
+
+  initAd();
+
+  // ============================================================
+  // Captcha
+  // ============================================================
   async function onTurnstile(token) {
     var msg = document.getElementById('msg');
     msg.textContent = 'Generando enlace…';
