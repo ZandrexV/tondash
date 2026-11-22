@@ -22,7 +22,19 @@ export async function onRequest({ request, env }) {
   // Re-serializar para normalizar y evitar inyección en el atributo
   const safeSrc = escapeAttr(parsed.toString());
 
-  return new Response(renderEmbed(safeSrc), {
+  // Ruta de vuelta al redirector (solo rutas internas /play/...)
+  let ret = url.searchParams.get('ret') || '';
+  if (!/^\/play\/[A-Za-z0-9\/]*$/.test(ret) || ret.startsWith('//')) ret = '';
+
+  // Segundos hasta que caduque la cookie (se lee del propio valor, solo para el temporizador)
+  let remaining = 3600;
+  const m = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)captcha_pass=v1:(\d+):/);
+  if (m) {
+    const left = parseInt(m[1], 10) - Math.floor(Date.now() / 1000);
+    if (Number.isFinite(left)) remaining = Math.min(3600, Math.max(5, left));
+  }
+
+  return new Response(renderEmbed(safeSrc, ret, remaining), {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
@@ -40,7 +52,7 @@ function escapeAttr(s) {
   }[c]));
 }
 
-function renderEmbed(src) {
+function renderEmbed(src, ret, remaining) {
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -57,6 +69,10 @@ function renderEmbed(src) {
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write; web-share"
         allowfullscreen
         referrerpolicy="origin"></iframe>
+${ret ? `<script>
+  // Al caducar la cookie (1h) vuelve al redirector: captcha + anuncio
+  setTimeout(function () { location.replace(${JSON.stringify(ret)}); }, ${remaining} * 1000);
+</script>` : ''}
 </body>
 </html>`;
 }
