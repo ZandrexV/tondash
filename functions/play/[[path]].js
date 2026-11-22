@@ -6,7 +6,7 @@
 //   4. Al terminar el ad (o skip/error/timeout) → location.replace(url)
 
 const PASS_COOKIE = 'captcha_pass';
-const PASS_TTL = 60 * 60 * 24; // 24h
+const PASS_TTL = 60 * 60; // 1h
 const VAST_URL = 'https://unfolded-uncle.com/d.miF/zddwGtN/vaZsGiUV/Gewmj9/uJZ/UYl/k/P/T_cczYN/D/EU4FNUjik-thN/zVMk0aMYTLge3YMPwT'; // fallback; mejor definir env.VAST_URL
 
 const HTML_HEADERS = { 'Content-Type': 'text/html; charset=utf-8' };
@@ -57,7 +57,7 @@ export async function onRequest({ request, env }) {
       return new Response(null, {
         status: 302,
         headers: {
-          Location: `/embed?src=${encodeURIComponent(playerUrl)}`,
+          Location: embedUrl(playerUrl, url),
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
           Vary: 'Cookie',
         },
@@ -97,7 +97,7 @@ export async function onRequest({ request, env }) {
       );
     }
     return new Response(
-      JSON.stringify({ url: `/embed?src=${encodeURIComponent(playerUrl)}` }),
+      JSON.stringify({ url: embedUrl(playerUrl, url) }),
       { status: 200, headers }
     );
   }
@@ -106,6 +106,11 @@ export async function onRequest({ request, env }) {
 }
 
 /* ---------- Utilidades ---------- */
+// ret = ruta de /play para que /embed vuelva aquí cuando caduque la cookie
+function embedUrl(playerUrl, url) {
+  return `/embed?src=${encodeURIComponent(playerUrl)}&ret=${encodeURIComponent(url.pathname)}`;
+}
+
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
@@ -403,6 +408,7 @@ function renderPage(env, type, id, s, e, backdrop) {
   var VAST_URL = ${jsStr(env.VAST_URL || VAST_URL)};
   var AD_FETCH_TIMEOUT = 2000;   // ms para obtener el VAST (cada petición)
   var AD_PLAY_GUARD    = 5000;   // ms para que el video empiece
+  var SKIP_AFTER       = 5;      // segundos hasta poder omitir el anuncio
 
   var adLayer    = document.getElementById('ad-layer');
   var adLoading  = document.getElementById('ad-loading');
@@ -499,15 +505,8 @@ function renderPage(env, type, id, s, e, backdrop) {
     var tracking = collectTracking(inline);
     var clickThrough = t(inline, 'ClickThrough');
     var clickTracking = texts(inline, 'ClickTracking');
-    var linear = inline.querySelector('Linear');
 
-    var rawSkip = linear ? linear.getAttribute('skipoffset') : null;
-    var skipOffset = null;
-    if (rawSkip) {
-      skipOffset = /%$/.test(rawSkip)
-        ? (duration ? duration * parseFloat(rawSkip) / 100 : null)
-        : parseDur(rawSkip);
-    }
+    var skipOffset = SKIP_AFTER; // fijo, ignora el skipoffset del VAST
 
     var mediaFiles = Array.from(inline.querySelectorAll('MediaFile')).map(function(m){
       return {
